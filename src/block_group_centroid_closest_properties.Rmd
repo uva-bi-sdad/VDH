@@ -10,14 +10,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Create census_acs_2014_2018_va_bg_populations
 ```{r}
 library(tidycensus)
-source("src/helper_functions.R")
+source(here::here("src/helper_functions.R"))
 
 vars <- load_variables(2017, "acs5", cache = TRUE)
 
 bg_pops <- tidycensus::get_acs(state = "VA",
                     geography = "block group",
-                    variables = "B00001_001",
-                    year = 2018)
+                    variables = c("B00001_001", "B25003_002", "B25003_003", "B25088_002", "B25064_001"),
+                    year = 2018,
+                    output = "wide")
 
 con <- get_db_conn()
 dbWriteTable(con, c("data_commons", "census_acs_2014_2018_va_bg_populations"), bg_pops, row.names=F)
