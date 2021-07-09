@@ -16,13 +16,13 @@ vars <- load_variables(2017, "acs5", cache = TRUE)
 
 bg_pops <- tidycensus::get_acs(state = "VA",
                     geography = "block group",
-                    variables = c("B00001_001", "B25003_002", "B25003_003", "B25088_002", "B25064_001"),
-                    year = 2018,
-                    output = "wide")
+                    variables = c("B01001_001"),
+                    year = 2019,)
 
 con <- get_db_conn()
-dbWriteTable(con, c("data_commons", "census_acs_2014_2018_va_bg_populations"), bg_pops, row.names=F)
-dbDisconnect(con)
+dbWriteTable(con, c("data_commons", "census_acs_2014_2018_va_bg_populations"), bg_pops, row.names=F, overwrite=T)
+
+#, "B25003_002", "B25003_003", "B25088_002", "B25064_001"
 ```
 
 ## Create Block Group Centroids
@@ -59,11 +59,17 @@ CROSS JOIN LATERAL (
 
 ##  Add Block Group Population
 ```{sql connection=con}
+DROP TABLE IF EXISTS data_commons.virginia_block_group_centroids_closest_property_pop;
+
 SELECT a.geoid_bg, b."GEOID" AS block_geom, a.bg_lon AS bg_ctr_lon, a.bg_lat AS bg_ctr_lat, a.bg_pt_geom AS bg_ctr_geom, 
   closest_property_lon, closest_property_lat, closest_property_geom, closest_property_iris_id, b."estimate" AS bg_population
 INTO data_commons.virginia_block_group_centroids_closest_property_pop
 FROM data_commons.virginia_block_group_centroids_closest_property a
 LEFT JOIN data_commons.census_acs_2014_2018_va_bg_populations b
   ON a.geoid_bg = b."GEOID";
+```
+
+```{r}
+dbDisconnect(con)
 ```
 
