@@ -32,6 +32,7 @@ library(data.table)
 
 rD <- rsDriver(browser="firefox", port=4599L, verbose=F)
 remDr <- rD[["client"]]
+remDr$setTimeout(type = "page load", milliseconds = 20000)
 
 get_page <- function(page_num = 1) {
   remDr$navigate(paste0("https://doctor.webmd.com/results?q=Primary%20Care&sids=29277,29264,29259&pagenumber=", page_num, "&d=161&rd=161&sortby=bestmatch&medicare=false&medicaid=false&newpatient=false&isvirtualvisit=false&minrating=0&pt=37.5537,-77.4602&city=Richmond&state=VA"))
@@ -59,7 +60,6 @@ for (p in 1:100) {
     dr_info <- get_dr_info(html)
     dr_info_dt <- rbindlist(list(dr_info_dt, dr_info))
   }
-  Sys.sleep(1)
 }
 
 
