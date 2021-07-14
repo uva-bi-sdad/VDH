@@ -22,6 +22,7 @@ library(stringr)
 library(openxlsx)
 library(sf)
 library(data.table)
+library(htmlwidgets)
 
 #
 # DATA INGESTION -------------------------------------------------------
@@ -154,7 +155,50 @@ ui <- dashboardPage(
                   leafletOutput("vhd_health_access_comp_map")
                 )
               )
-            )
+            ),
+            
+            # plot options 
+            
+            fluidRow(
+              
+              column(1),
+              
+              column(
+                width = 2,
+                
+                radioButtons("hd_boxplots", 
+                             label = h4("Boxplots"),
+                             choices = list("On" = 1, "Off" = 0), 
+                             selected = 1)
+              ),
+              
+ 
+              column(
+                width = 4,
+                
+                radioButtons("hd_rurality", 
+                             label = h4("Rural and Urban Parallel Coordinates"),
+                             choices = list("Both" = 1, "Rural Only" = 2, "Urban Only" = 3, "None" = 0), 
+                             selected = 1)
+              )
+              
+            ),
+            
+            # Measure plots
+            
+            fluidRow(
+              
+              column(
+                width = 6,
+                
+                box(
+                  title = "No Health Insurance",
+                  width = 12,
+                  collapsible = TRUE,
+                  plotlyOutput("hd_m1_plot", height = "350px")
+                )
+              )
+            )  
             
           ),
             
@@ -1571,9 +1615,8 @@ server <- function(input, output, session) {
   #   
   # })
   
+  
   # county measure plots -------------------------------------------------
-  
-  
   
   output$cty_m1_plot <- renderPlotly({
     
@@ -1627,7 +1670,7 @@ server <- function(input, output, session) {
         type = 'box',
         x = county_data$year,
         y = county_data$no_health_ins,
-        fillcolor = "white",
+        fillcolor = 'transparent',
         line = list(color = "#787878"),
         marker = list(color = "#787878"),
         inherit = FALSE,
@@ -1649,7 +1692,13 @@ server <- function(input, output, session) {
         #showticklabels = FALSE
       )
       #autosize = F, height = 500
-    )
+      
+    ) %>% onRender("function(p){
+            var e = p.getElementsByClassName('boxlayer')
+            if(e && e[0].parentElement){
+              e[0].parentElement.appendChild(e[0].parentElement.children[0])
+            }
+          }")
     
     p
     
@@ -1750,9 +1799,179 @@ server <- function(input, output, session) {
     }
     
   }) 
-  
-}
 
+  
+  
+  # health district measure plots -------------------------------------------------
+  
+  output$hd_m1_plot <- renderPlotly({
+    
+    rural_hd_data <- vhd_data %>%
+      filter(hd_rural == 'rural')
+    
+    urban_hd_data <- vhd_data %>%
+      filter(hd_rural == 'mixed')
+    
+    
+    # line plots - urban    
+    p <- plot_ly(
+      type = 'scatter',
+      x = urban_hd_data$year,
+      y = urban_hd_data$no_health_ins,
+      text = urban_hd_data$health_district,
+      hoverinfo = 'text',
+      mode = 'lines+markers',
+      marker = list(color = 'lightgray'),
+      line = list(color = 'lightgray'),
+      transforms = list(
+        list(
+          type = 'groupby',
+          groups = urban_hd_data$health_district
+        )
+      ),
+      #inherit = FALSE,
+      showlegend = FALSE
+      
+      # line plots - rural
+    ) %>% add_trace(
+      type = 'scatter',
+      x = rural_hd_data$year,
+      y = rural_hd_data$no_health_ins,
+      text = rural_hd_data$health_district,
+      hoverinfo = 'text',
+      mode = 'lines+markers',
+      marker = list(color = 'lightgreen'),
+      line = list(color = 'lightgreen'),
+      transforms = list(
+        list(
+          type = 'groupby',
+          groups = rural_hd_data$health_district
+        )
+      ),
+      inherit = FALSE,
+      showlegend = FALSE  
+      
+      # box plots
+    ) %>% add_trace(
+      type = 'box',
+      x = vhd_data$year,
+      y = vhd_data$no_health_ins,
+      fillcolor = 'transparent',
+      line = list(color = "#787878"),
+      marker = list(color = "#787878"),
+      inherit = FALSE,
+      showlegend = FALSE  
+      
+      # layout  
+    ) %>% layout(
+      #title = "Measure 1 Over Time",
+      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
+      xaxis = list(
+        title = "Year",
+        zeroline = FALSE
+        #showticklabels = FALSE
+      ),
+      yaxis = list(
+        title = "Value",
+        type = "numeric", hoverformat = ".2f",
+        zeroline = FALSE
+        #showticklabels = FALSE
+      )
+      #autosize = F, height = 500
+      
+    ) %>% onRender("function(p){
+            var e = p.getElementsByClassName('boxlayer')
+                   if(e && e[0].parentElement){
+                   e[0].parentElement.appendChild(e[0].parentElement.children[0])
+                   }
+  }")
+    
+    p
+    
+    })
+  
+
+  # add trace in a different color of tract that was clicked on
+  observe({
+
+    if(!is.null(input$vhd_health_access_comp_map_shape_click$id))
+    {
+      # remove previously chosen tract (if there was one)
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("deleteTraces", 3) # delete the fourth trace (if it exists)
+
+      click_data <- vhd_data %>%
+        filter(fid == input$vhd_health_access_comp_map_shape_click$id)
+
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke(
+          "addTraces",
+          list(
+            type = 'scatter',
+            x = click_data$year,
+            y = click_data$no_health_ins,
+            text = click_data$health_district,
+            hoverinfo = 'text',
+            mode = 'markers+lines',
+            marker = list(color = 'steelblue'),
+            line = list(color = 'steelblue')
+            #inherit = FALSE,
+            #showlegend = FALSE
+          )
+        )
+    }
+
+  })
+   
+  # toggle boxplots
+  observeEvent(input$hd_boxplots, {
+
+    if(input$hd_boxplots == 0)
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
+    }
+    else
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = TRUE), 2)
+    }
+
+  })
+
+
+  # rural/urban toggle
+  observeEvent(input$hd_rurality, {
+
+    if(input$hd_rurality == 0) # none
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
+    }
+    else if(input$hd_rurality == 1) # both
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
+    }
+    else if(input$hd_rurality == 2) # rural only
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 0)
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
+    }
+    else # urban only
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 1)
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
+
+    }
+
+  })
+
+}
 
 #
 # APP ----------------------------------------------------------------------------------------------------
