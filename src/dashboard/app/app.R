@@ -29,7 +29,7 @@ library(data.table)
 
 vhd_data <- readRDS("health_district_data.rds")
 tract_data <- readRDS("tract_prototype_data.rds")
-county_data <- readRDS("cty_prototype_data.rds")
+county_data <- readRDS("county_data.rds")
 
 rural_cty_data <- county_data %>%
   filter(srhp_rural == 'rural')
@@ -170,7 +170,7 @@ ui <- dashboardPage(
                 selectInput(
                   inputId = "hlth_district",
                   label = "Choose a Health District",
-                  choices = c("All", "District 1", "District 2")
+                  choices = c("All", c(unique(county_data$HealthDistrict)[sort.list(unique(county_data$HealthDistrict))])),
                   #selected = "All"
                   #selectize = TRUE)
                 )
@@ -248,97 +248,7 @@ ui <- dashboardPage(
                 )
               )
             )  
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "High Blood Pressure",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m2_plot", height = "250px")
-            #     )
-            #   ),
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "Cancer",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m3_plot", height = "250px")
-            #     )
-            #   )
-            #   
-            # ),
-            # 
-            # 
-            # # row 2 --------------------------
-            # 
-            # fluidRow(
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "High Cholesterol",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m4_plot", height = "250px")
-            #     )
-            #   ),
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "Obesity",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m5_plot", height = "250px")
-            #     )
-            #   ),
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "Diabetes",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m6_plot", height = "250px")
-            #     )
-            #   )
-            #   
-            # ),
-            # 
-            # 
-            # # row 3 -----------------------------
-            # 
-            # fluidRow(
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "Mental Health",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m7_plot", height = "250px")
-            #     )
-            #   ),
-            #   
-            #   column(
-            #     width = 4,
-            #     
-            #     box(
-            #       title = "Physical Health",
-            #       width = 12,
-            #       collapsible = TRUE,
-            #       plotlyOutput("m8_plot", height = "250px")
-            #     )
-            #   )
-            #) # end fluid Row
+ 
           ),
             
         
@@ -573,8 +483,15 @@ server <- function(input, output, session) {
   
   chosen_hd_data <- reactive({
     
-    county_data %>%
-      filter(county_name == input$cty)
+    if(input$hlth_district == 'All')
+    {
+      county_data
+    }
+    else
+    {
+      county_data %>%
+        filter(HealthDistrict == input$hlth_district)
+    }
     
   })
   
@@ -636,7 +553,7 @@ server <- function(input, output, session) {
   
   output$cty_health_access_comp_map <- renderLeaflet({
     
-    map_data <- county_data %>%
+    map_data <- chosen_hd_data() %>%
       filter(year == 2019)
     
     labels <- lapply(
@@ -1659,13 +1576,20 @@ server <- function(input, output, session) {
   
   
   output$cty_m1_plot <- renderPlotly({
+    
+    rural_cty_data <- chosen_hd_data() %>%
+      filter(srhp_rural == 'rural')
+    
+    urban_cty_data <- chosen_hd_data() %>%
+      filter(srhp_rural == 'urban') 
+    
 
     # line plots - urban    
     p <- plot_ly(
       type = 'scatter',
       x = urban_cty_data$year,
       y = urban_cty_data$no_health_ins,
-      text = paste0(urban_cty_data$county_name, "County"),
+      text = paste0(urban_cty_data$county_name, " County"),
       hoverinfo = 'text',
       mode = 'lines+markers',
       marker = list(color = 'lightgray'),
@@ -1684,7 +1608,7 @@ server <- function(input, output, session) {
       type = 'scatter',
       x = rural_cty_data$year,
       y = rural_cty_data$no_health_ins,
-      text = paste0(rural_cty_data$county_name, "County"),
+      text = paste0(rural_cty_data$county_name, " County"),
       hoverinfo = 'text',
       mode = 'lines+markers',
       marker = list(color = 'lightgreen'),
@@ -1705,6 +1629,7 @@ server <- function(input, output, session) {
         y = county_data$no_health_ins,
         fillcolor = "white",
         line = list(color = "#787878"),
+        marker = list(color = "#787878"),
         inherit = FALSE,
         showlegend = FALSE  
             
@@ -1740,7 +1665,7 @@ server <- function(input, output, session) {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("deleteTraces", 3) # delete the fourth trace (if it exists)
       
-      click_data <- county_data %>%
+      click_data <- chosen_hd_data() %>%
         filter(county_id == input$cty_health_access_comp_map_shape_click$id)
       
       plotlyProxy("cty_m1_plot", session) %>%
