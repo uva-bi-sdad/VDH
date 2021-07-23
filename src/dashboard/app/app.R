@@ -1,5 +1,4 @@
-# VDH Dashboard prototype - using random data
-# color parallel coordinates plot by rurality
+# VDH Dashboard prototype - Health Access
 
 # read details of ?selectizeInput for speedup
 
@@ -57,22 +56,7 @@ ui <- dashboardPage(
     title = span("Virginia Department of Health", style = "font-size: 14px"),
     #titleWidth = 350,
     #leftUi = tagList(
-      
-      # dropdownBlock(
-      #   id = "county",
-      #   title = strong("Choose County"),
-      #   #icon = icon("sliders"),
-      #   badgeStatus = NULL,
-      #   #pickerInput(
-      #   selectInput(
-      #     inputId = "cty",
-      #     label = "Choose a County",
-      #     choices = c("All Counties", unique(tract_data$county_name)[sort.list(unique(tract_data$county_name))]),
-      #     selected = "Accomack"
-      #     #selectize = TRUE)
-      #   )
-      # ),
-      
+    
       dropdownBlock(
         id = "download",
         title = strong("Data Download"),
@@ -92,25 +76,68 @@ ui <- dashboardPage(
   # sidebar menu ------------------------------------------------------
   
   sidebar = dashboardSidebar(
-    sidebarMenu(
-      hr(),
-      menuItem(text = "Community Capital Areas", tabName = "capitals", icon = icon("list-ol")),
-      menuItem(text = "Financial", tabName = "financial", icon = icon("money-check-alt")),
-      menuItem(text = "Human", tabName = "human", icon = icon("child"),
-               menuSubItem("Health Care Access", tabName = "health_access")),
-      menuItem(text = "Social", tabName = "social", icon = icon("handshake")),
-      menuItem(text = "Natural", tabName = "natural", icon = icon("tree")),
-      menuItem(text = "Built", tabName = "built", icon = icon("home")),
-      menuItem(text = "Political", tabName = "political", icon = icon("landmark")),
-      menuItem(text = "Cultural", tabName = "cultural", icon = icon("theater-masks")), 
-      hr(),
-      menuItem(text = "Data and Methods", tabName = "data", icon = icon("info-circle"),
-               menuSubItem(text = "Measures Table", tabName = "datamethods"),
-               menuSubItem(text = "Data Descriptions", tabName = "datadescription")),
-      menuItem(text = "Resources", tabName = "resources", icon = icon("book-open"),
-               menuSubItem(text = "Bibliography", tabName = "biblio")),
-      menuItem(text = "About Us", tabName = "contact", icon = icon("address-card"))
+    
+    selectInput(
+      inputId = "menu",
+      label = "Choose a Menu",
+      choices = c("Community Capitals", "VDH"),
+      selected = "Community Capitals"
+      #selectize = TRUE)
+    ),
+    
+    conditionalPanel("input.menu == 'Community Capitals'",
+    
+      sidebarMenu(
+        hr(),
+        menuItem(text = "Community Capital Areas", tabName = "capitals", icon = icon("list-ol")),
+        menuItem(text = "Financial", tabName = "financial", icon = icon("money-check-alt")),
+        menuItem(text = "Human", tabName = "human", icon = icon("child"),
+                 menuSubItem("Health Care Access", tabName = "health-care")),
+        menuItem(text = "Social", tabName = "social", icon = icon("handshake")),
+        menuItem(text = "Natural", tabName = "natural", icon = icon("tree")),
+        menuItem(text = "Built", tabName = "built", icon = icon("home")),
+        menuItem(text = "Political", tabName = "political", icon = icon("landmark")),
+        menuItem(text = "Cultural", tabName = "cultural", icon = icon("theater-masks")), 
+        hr(),
+        menuItem(text = "Data and Methods", tabName = "data", icon = icon("info-circle"),
+                 menuSubItem(text = "Measures Table", tabName = "datamethods"),
+                 menuSubItem(text = "Data Descriptions", tabName = "datadescription")),
+        menuItem(text = "Resources", tabName = "resources", icon = icon("book-open"),
+                 menuSubItem(text = "Bibliography", tabName = "biblio")),
+        menuItem(text = "About Us", tabName = "contact", icon = icon("address-card"))
+      )
+    ),
+    
+    conditionalPanel("input.menu == 'VDH'",
+                     
+      sidebarMenu(
+        hr(),
+        menuItem(text = "VDH Landing Page", tabName = "vdh-landing", icon = icon("list-ol")),
+        menuItem(text = "Healthy Moms and Babies", tabName = "moms-babies", icon = icon("money-check-alt")),
+        menuItem(text = "Education as the Backbone of Rural Virginia", tabName = "education", icon = icon("child")),
+        menuItem(text = "Broadband Internet Supporting Rural Virginia", tabName = "broadband", icon = icon("handshake")),
+        menuItem(text = "Healthy Built and Natural Environments", tabName = "built-natural", icon = icon("tree")),
+        menuItem(text = "Access to Health Care Services", tabName = "health-care", icon = icon("home")),
+        menuItem(text = "Behavioral Health, Substance Use Disorder and Recovery", tabName = "behavior", icon = icon("landmark")),
+        menuItem(text = "National Food Security", tabName = "food-security", icon = icon("theater-masks")),
+        menuItem(text = "Elevate Rural Workforce Development and Employment", tabName = "workforce", icon = icon("theater-masks")),
+        menuItem(text = "Financial Literacy: Leveraging Individualized Resources", tabName = "financial-literacy", icon = icon("theater-masks")),
+        menuItem(text = "Rural Transportation", tabName = "transportation", icon = icon("theater-masks")),
+        menuItem(text = "Healthy Housing", tabName = "housing", icon = icon("theater-masks")),
+        menuItem(text = "Healthy Minds, Body and Spirit", tabName = "mind-body-spirit", icon = icon("theater-masks")),
+        menuItem(text = "Aging in Place and Addressing Social Isolation", tabName = "aging", icon = icon("theater-masks")),
+        menuItem(text = "COVID-19 Pandemic", tabName = "covid", icon = icon("theater-masks")),
+        
+        hr(),
+        menuItem(text = "Data and Methods", tabName = "data", icon = icon("info-circle"),
+                 menuSubItem(text = "Measures Table", tabName = "datamethods"),
+                 menuSubItem(text = "Data Descriptions", tabName = "datadescription")),
+        menuItem(text = "Resources", tabName = "resources", icon = icon("book-open"),
+                 menuSubItem(text = "Bibliography", tabName = "biblio")),
+        menuItem(text = "About Us", tabName = "contact", icon = icon("address-card"))
+      )
     )
+    
   ),
   
   
@@ -126,7 +153,7 @@ ui <- dashboardPage(
       #
       
       tabItem(
-        tabName = "health_access",
+        tabName = "health-care",
         
         tabsetPanel(
           type = "tabs",
@@ -254,15 +281,7 @@ ui <- dashboardPage(
                              selected = 1)
               ),
               
-              # column(
-              #   width = 3,
-              #   
-              #   radioButtons("par_coords", 
-              #                label = h4("Parallel Coordinates"),
-              #                choices = list("On" = 1, "Off" = 0), 
-              #                selected = 1)
-              # ),
-              # 
+
               column(
                 width = 4,
                 
@@ -440,55 +459,14 @@ ui <- dashboardPage(
                   )
                 )
                 
-                # column(
-                #   width = 4,
-                #   
-                #   box(
-                #     title = "Health Access",
-                #     width = 12,
-                #     collapsible = TRUE,
-                #     plotlyOutput("m9_plot", height = "250px")
-                #   )
-                # )
-                
               )
-              
-              # # row 4 ----------------------------------
-              # 
-              # fluidRow(
-              #   
-              #   column(
-              #     width = 4,
-              #     
-              #     box(
-              #       title = "Total Jobs",
-              #       width = 12,
-              #       collapsible = TRUE,
-              #       plotlyOutput("m10_plot", height = "250px")
-              #     )
-              #   ),
-              #   
-              #   column(
-              #     width = 4,
-              #     
-              #     box(
-              #       title = "Percentage of Jobs in Young Firms",
-              #       width = 12,
-              #       collapsible = TRUE,
-              #       plotlyOutput("m11_plot", height = "250px")
-              #     )
-              #   )
-              #   
-              # )
           )
+          
         )
-              
-              
-              
+        
+        
+        # Next tab here
       )
-      
-      
-      # Next tab here
     )
   )
 )
