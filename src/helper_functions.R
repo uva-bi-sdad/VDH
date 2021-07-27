@@ -1,5 +1,6 @@
 library(RPostgreSQL)
 
+# connect to database function
 get_db_conn <-
   function(db_name = "sdad",
            db_host = "postgis1",
