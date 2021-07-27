@@ -124,10 +124,6 @@ va.bg.tracts.prim.care <- va.bg.tracts.prim.care %>%
   summarize(prim.care.n = n()) 
 
 ##save for exercise uchi
-#write_csv(va.bg.tracts.prim.care, "~/VDH/exercise_uchi")
-  
-#We have to first drop la.city.tracts.banks’s geometry because you cannot join two sf objects together using left_join().
-#va.bg.tracts.prim.care <- st_drop_geometry(va.bg.tracts.prim.care)
 
 #Now, use left_join() and assign a 0 to tracts with no banks using the replace_na() function within mutate().
 va.bg.tracts.utm <- va.bg.tracts.utm %>% 
