@@ -1,0 +1,75 @@
+---
+title: "Create Table of Properties Closest to Block Group Centroids including Block Group Populations"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Create census_acs_2014_2018_va_bg_populations
+```{r}
+library(tidycensus)
+source(here::here("src/helper_functions.R"))
+
+vars <- load_variables(2017, "acs5", cache = TRUE)
+
+bg_pops <- tidycensus::get_acs(state = "VA",
+                    geography = "block group",
+                    variables = c("B01001_001"),
+                    year = 2019,)
+
+con <- get_db_conn()
+dbWriteTable(con, c("data_commons", "census_acs_2014_2018_va_bg_populations"), bg_pops, row.names=F, overwrite=T)
+
+#, "B25003_002", "B25003_003", "B25088_002", "B25064_001"
+```
+
+## Create Block Group Centroids
+```{sql connection=con}
+select "GEOID" AS geoid_bg, 
+       st_centroid(geometry)::geometry AS centroid_geom, 
+       st_x(st_centroid(geometry))::numeric AS centroid_lon, 
+       st_y(st_centroid(geometry))::numeric AS centroid_lat
+  into data_commons.virginia_block_group_centroids
+  from gis_census_cb.cb_2018_51_bg_500k
+```
+
+## Get properties closest to Block Group Centroids
+```{sql connection=con}
+EXPLAIN SELECT 
+       bg.geoid_bg,
+       bg.centroid_lon AS bg_lon,
+       bg.centroid_lat AS bg_lat,
+       ST_SetSRID(ST_MakePoint(bg.centroid_lon::NUMERIC, bg.centroid_lat::NUMERIC), 4326)::geometry as bg_pt_geom,
+       ST_X(props.geometry::geometry) AS closest_property_lon,
+       ST_Y(props.geometry::geometry) AS closest_property_lat,
+       props.geometry::geometry AS closest_property_geom,
+       props.p_id_iris_frmtd AS closest_property_iris_id,
+       ST_Distance(props.geometry::geometry, ST_SetSRID(ST_MakePoint(bg.centroid_lon::NUMERIC, bg.centroid_lat::NUMERIC), 4326)::geometry) AS dist
+INTO data_commons.virginia_block_group_centroids_closest_property
+FROM data_commons.virginia_block_group_centroids bg
+CROSS JOIN LATERAL (
+  SELECT p_id_iris_frmtd, geometry
+  FROM corelogic_usda.current_tax_200627_latest_all_add_vars_add_progs_geom_blk prop
+  ORDER BY ST_SetSRID(ST_MakePoint(bg.centroid_lon::NUMERIC, bg.centroid_lat::NUMERIC), 4326)::geometry <-> prop.geometry
+  LIMIT 1
+) props;
+```
+
+##  Add Block Group Population
+```{sql connection=con}
+DROP TABLE IF EXISTS data_commons.virginia_block_group_centroids_closest_property_pop;
+
+SELECT a.geoid_bg, b."GEOID" AS block_geom, a.bg_lon AS bg_ctr_lon, a.bg_lat AS bg_ctr_lat, a.bg_pt_geom AS bg_ctr_geom, 
+  closest_property_lon, closest_property_lat, closest_property_geom, closest_property_iris_id, b."estimate" AS bg_population
+INTO data_commons.virginia_block_group_centroids_closest_property_pop
+FROM data_commons.virginia_block_group_centroids_closest_property a
+LEFT JOIN data_commons.census_acs_2014_2018_va_bg_populations b
+  ON a.geoid_bg = b."GEOID";
+```
+
+```{r}
+dbDisconnect(con)
+```
+
