@@ -101,7 +101,7 @@ for (p in 1:1278) {
 
 ## Write out to csv file
 ```{r}
-readr::write_csv(dr_info_dt, "src/tmp/doctor_pages_harrisonburg_1_1278.csv")
+readr::write_csv(dr_info_dt, "data/doctor_pages/doctor_pages_harrisonburg_1_1278.csv")
 ```
 
 ## Close Selenium Connection
@@ -111,7 +111,7 @@ remDr$close()
 
 ## Upload All CSV Files to Database
 ```{r}
-file_paths <- list.files("src/tmp", full.names = T)
+file_paths <- list.files("data/doctor_pages", full.names = T)
 
 for (i in 1:length(file_paths)) {
   dt <- fread(file_paths[i])
