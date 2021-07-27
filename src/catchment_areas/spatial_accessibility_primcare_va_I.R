@@ -74,7 +74,10 @@ va.bg.tracts.utm <- va.bg.tracts.utm %>% slice(-c(inv_geom))
 ###############################################################################################
 #Read in the urgent care services data
 ###############################################################################################
-#original_formats
+
+#log into datacommons
+
+#query
 prim.care.va <- sf::st_read(
   conn, 
   query= "
@@ -101,6 +104,7 @@ prim.care <- tm_shape(va.bg.tracts.utm) +
   tmap_options(check.and.fix = TRUE) 
 
 prim.care
+
 ###############################################################################################
 #Points in Polygon
 ###############################################################################################
@@ -172,16 +176,6 @@ tm_shape(va.bg.tracts.utm) +
 #1mile=1609 meters
 dist.buffer <- 20   #in miles
 tract.buff  <-st_buffer(tract.centroids, dist = 1609*dist.buffer)
-#tract.buff
-
-#And let’s map it onto tracts with the banks.
-
-tmap_mode("view")
-
-tm_shape(va.bg.tracts.utm) +
-  tm_polygons() +
-  tm_shape(tract.centroids) +
-  tm_dots(size = 0.01) 
 
 #same format for tract.buff
 tract.buff.sf <- st_transform(tract.buff, crs = 4326)
@@ -206,7 +200,6 @@ tract.buff.sf <- tract.buff.sf %>% select(GEOID, tpop, county, geometry )
 buff.prim.care.va <- prim.care.va  %>% 
   st_join(tract.buff.sf) 
 
-#write_csv(buff.prim.care.va, "~/VDH/buff.prim.care.va.exercise.csv"  )
 #drop geometry
 buff.prim.care.va <- st_drop_geometry(buff.prim.care.va)
 #order
@@ -215,23 +208,6 @@ buff.prim.care.va <- buff.prim.care.va[order(buff.prim.care.va$GEOID),]
 buff.prim.care.va <- buff.prim.care.va %>%
   group_by(GEOID) %>% 
   summarize(prim.care.10m= n()) 
-
-
-#buff.prim.care.va <- buff.prim.care.va %>% select(GEOID, tpop)
-
-#buff.prim.care.va <- buff.prim.care.va %>%
- # group_by(GEOID) %>% 
-  #summarize(prim.care.10m= n()) 
-
-
-
-
-
-########
-# buff.prim.care.va <-  buff.prim.care.va %>%
-#   group_by(GEOID) %>% 
-#   summarize(prim.care.20m= n())
-
 
 #######
 
@@ -245,16 +221,12 @@ va.bg.tracts.utm <- va.bg.tracts.utm %>%
 #We can then use summarize() to find the mean number of hospitals that occur within 1 mile of a tract.
 
 #mean 
-mean(va.bg.tracts.utm$prim.care.20m)
+mean(va.bg.tracts.utm$prim.care.10m)
 
 
-# There are on average 1.229 hospitals within 10 miles of tracts in block groups in VA. 
-# There are on average 10.2 hospitals within 20 miles of tracts in block groups in VA.
-#This is likely not representative given 
-# that there are a small number of tracts with a lot of banks within a 1-mile radius, as demonstrated by the histogram 
-# below. It’s common practice to test the sensitivity of your results by choosing different buffer sizes.
+# There are on average ---- hospitals within __0 miles of tracts in block groups in VA. 
 
-#Let’s create a choropleth map of banks per population within a 1-mile radius.
+#Choropleth map of doctors per population within a 1-mile radius.
 
 tmap_mode("plot")
 
@@ -277,7 +249,7 @@ tm_shape(va.bg.tracts.utm, unit = "mi") +
 ###############################################################################################
 
 
-# We limit ourselves a bit by capturing banks just within a radius distance. 
+# We limit ourselves a bit by capturing doctors just within a radius distance. 
 # Why not calculate the distance to all banks and summarize that distribution? 
 #   Distance is typically measured in Euclidean distance. Euclidean distance, also referred to as straight-line distance or “as the crow flies,” 
 # is the distance between two points connected by a straight line on a flat surface. To calculate the distance (in meters) 
@@ -285,33 +257,23 @@ tm_shape(va.bg.tracts.utm, unit = "mi") +
 
 prim.care.dist<-st_distance(tract.centroids, prim.care.va)
 
-#For the object bank.dist, the rows represent the tracts and the columns are the banks. You can check this by comparing dimensions
-
-#number of tracts is 999
+#number of tracts is ...
 dim(tract.centroids)
-## [1] 999  10
-#number of banks is 622
 dim(prim.care.va)
-## [1] 616   8
-#999 by 622
 dim(prim.care.dist)
 
-# What we have with bank.dist is a distance matrix. That is, we have each tracts’s distance to each bank. 
+# What we have with prim.care.dist is a distance matrix. That is, we have each tracts’s distance to each doctor. 
 # Note that st_distance() will calculate distance using the Coordinate Reference System’s units, in this case meters. 
 # A common spatial accessibility measure is the distance to the closest amenity (e.g. nearest bank). 
 # It allows one to evaluate the immediate proximity to the bank. We can use the function rowMins() in the package matrixStats to calculate the shortest distance.
 # 
 # The function rowMins() does exactly what you think it would do - get the minimum value across columns for each row. 
-# For bank.dist, this means we get the minimum distance to a bank for each neighborhood. 
-# Note that the order of tracts in bank.dist is the same as in la.city.tracts.utm. 
+# For bank.dist, this means we get the minimum distance to a doctor for each neighborhood. 
+# Note that the order of tracts in prim.care.dist is the same as in la.city.tracts.utm. 
 # Therefore, we can run rowMins() within mutate() to save the resulting value in our main data set la.city.tracts.utm.
 
 va.bg.tracts.utm <- va.bg.tracts.utm %>%
   mutate(prim.care.dmin = rowMins(prim.care.dist))
-#mutate(hospmin = (hosp.dist))
-
-
-#We can use summarize() to find the mean minimum distance to banks.
 
 #this can wait
 va.bg.tracts.utm %>%
@@ -339,15 +301,12 @@ dist.near <- tm_shape(va.bg.tracts.utm, unit = "mi") +
   tm_dots(col = "blue")+
   tm_scale_bar(position = c("left", "bottom"))
 
-
-#interactive mode
 tmap_mode("view")
 dist.near
 
 
 
 #interactive
-
 dist.near.plot <- tm_shape(va.bg.tracts.utm, unit = "mi") +
   tm_polygons(col = "prim.care.dmin", style = "fisher",palette = "Reds", 
               border.alpha = 0, title = "Distance to nearest \nhospital (m)") +
@@ -371,7 +330,7 @@ dist.near.plot
 # that fall inside the buffer, but also the centroids of other nearby tracts. The method accounts for competition for services among residents
 # in other neighborhoods (competing demand).
 # 
-# We’ve already calculated the FCA numerator in the buffer analysis (banks1m). 
+# We’ve already calculated the FCA numerator in the buffer analysis (). 
 # We apply the buffer analysis to count tract centroids tract.centroids rather than banks within a 1 mile buffer of each tract tract.buff. 
 # We sum up the populations of tracts
 
@@ -383,19 +342,16 @@ dist.near.plot
 #   summarize(buffpop = sum(tpop.x)) 
 
 ############
-#exercise
+#new exercise
 
 buff.tracts <- tract.centroids  %>% 
   select(tpop) %>% #we don't need other variables
   st_join(tract.buff.sf) 
-
 #drop geometries
 buff.tracts <- st_drop_geometry(buff.tracts )   
-  
 #order GEOID
 buff.tracts <- buff.tracts[order(buff.tracts$GEOID),]
-
-
+#summarise
 buff.tracts <- buff.tracts %>%
   group_by(GEOID) %>% 
   summarize(buffpop = sum(tpop.x)) 
@@ -421,7 +377,7 @@ fca_plot <- tm_shape(va.bg.tracts.utm, unit = "mi") +
             main.title.size = 0.95, frame = FALSE,
             legend.outside = TRUE, legend.outside.position = "right")+
   tm_shape(prim.care.va) +
-  tm_dots(col = "blue")+
+  tm_dots(col = "blue", size=0.005)+
   tm_scale_bar(position = c("left", "bottom"))
 
 fca_plot
