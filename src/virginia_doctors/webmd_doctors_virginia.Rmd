@@ -1,0 +1,240 @@
+---
+title: "WebMD Doctors Virginia"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(RSelenium)
+library(rvest)
+library(data.table)
+library(dataplumbr)
+library(dplyr)
+library(tibble)
+library(tidygeocoder)
+library(iterators)
+library(itertools)
+library(magrittr)
+library(sf)
+source("./helper_functions.R")
+```
+
+## Create Remote Driver for Selenium
+```{r}
+# IF ON RIVANNA, USE THIS
+# port <- 4444
+# ip <- "104.248.112.16"
+# rdBrowser <- "firefox"
+# 
+# remDr <- remoteDriver$new(
+#   remoteServerAddr = ip,
+#   port = port,
+#   browserName = rdBrowser
+# )
+# 
+# remDr$open()
+# remDr$setTimeout(type = "page load", milliseconds = 20000)
+# remDr$navigate("http://www.google.com/ncr")
+# remDr$navigate("http://www.r-project.org")
+
+# IF ON LOCAL COMPUTER< USE THIS
+rD <- rsDriver(browser="firefox", port=4599L, verbose=F)
+remDr <- rD[["client"]]
+remDr$setTimeout(type = "page load", milliseconds = 20000)
+```
+
+## Create a function for getting doctor cards within 100 miles of given point
+```{r}
+# For each of these:
+"pt=37.5537,-77.4602&city=Richmond&state=VA"
+"pt=37.2709,-79.9414&city=Roanoke&state=VA"
+"pt=36.9533,-81.0872&city=Wytheville&state=VA"
+"pt=36.6929,-77.5444&city=Emporia&state=VA"
+"pt=37.2557,-76.0084&city=Cape Charles&state=VA"
+"pt=38.3031,-77.4605&city=Fredericksburg&state=VA"
+"pt=38.4495,-78.8689&city=Harrisonburg&state=VA"
+
+# Create function:
+get_page <- function(page_num = 1) {
+  remDr$navigate(paste0("https://doctor.webmd.com/results?q=Primary%20Care&sids=29277,29264,29259&pagenumber=", page_num, "&d=161&rd=161&sortby=bestmatch&medicare=false&medicaid=false&newpatient=false&isvirtualvisit=false&minrating=0&pt=38.4495,-78.8689&city=Harrisonburg&state=VA"))
+}
+```
+
+## Additonal Functions for 1) Getting a doctor card, and 2) Getting the info from the doctor card
+```{r}
+get_dr_cards <- function(remDr) {
+  page <- remDr$findElements(using = "xpath", value = "//*[@class = 'card-info-wrap']")
+  data.frame(link = unlist(sapply(page, function(x){x$getElementAttribute('innerHTML')[[1]]})))
+}
+
+get_dr_info <- function(html) {
+  dr_name <- html %>% rvest::html_nodes(css = "h2") %>% rvest::html_text()
+  dr_specs <- html %>% rvest::html_nodes(css = ".prov-specialty") %>% rvest::html_text()
+  dr_addr <- html %>% rvest::html_nodes(css = ".addr-text") %>% rvest::html_text() %>% trimws(., "both")
+  data.table(name = dr_name, specialties = dr_specs, address = dr_addr)
+}
+```
+
+## For each page of doctor cards run this loop
+You'll need to get the final page number by looking at the bottom of the first page
+```{r}
+dr_info_dt <- data.table(name = character(), specialties = character(), address = character())
+for (p in 1:1278) {
+  Sys.sleep(1)
+  print(p)
+  get_page(page_num = p)
+  dr_cards <- get_dr_cards(remDr)
+  if (!is.null(dr_cards)) {
+    for (i in 1:nrow(dr_cards)) {
+      if (!is.null(dr_cards$link[i])) {
+        html <- read_html(dr_cards$link[i])
+        dr_info <- get_dr_info(html)
+        dr_info_dt <- rbindlist(list(dr_info_dt, dr_info))
+      }
+    }
+  }
+}
+```
+
+## Write out to csv file
+```{r}
+readr::write_csv(dr_info_dt, "data/doctor_pages/doctor_pages_harrisonburg_1_1278.csv")
+```
+
+## Close Selenium Connection
+```{r}
+remDr$close()
+```
+
+## Upload All CSV Files to Database
+```{r}
+file_paths <- list.files("data/doctor_pages", full.names = T)
+
+for (i in 1:length(file_paths)) {
+  dt <- fread(file_paths[i])
+  dbWriteTable(con, c("data_commons", "virginia_primary_care_doctors"), dt, overwrite = F, append = T, row.names = F)
+}
+
+dbDisconnect(con)
+```
+
+## Remove Duplicate Records from Database Table; make owner data_commons
+```{r}
+con <- get_db_conn(db_host = "localhost", db_port = 5434)
+dbSendQuery(con, "SELECT DISTINCT * INTO data_commons.virginia_primary_care_doctors_unq FROM data_commons.virginia_primary_care_doctors")
+dbSendQuery(con, "DROP TABLE data_commons.virginia_primary_care_doctors")
+dbSendQuery(con, "ALTER TABLE data_commons.virginia_primary_care_doctors_unq RENAME TO virginia_primary_care_doctors")
+dbSendQuery(con, "ALTER TABLE data_commons.virginia_primary_care_doctors OWNER TO data_commons")
+dbDisconnect(con)
+```
+
+## Geocode All Doctor Addresses and Write to Database
+```{r}
+con <- get_db_conn()
+test_records <- dbGetQuery(con, "SELECT * FROM data_commons.virginia_primary_care_doctors")
+dbDisconnect(con)
+
+test_addrs <- unique(as_tibble(test_records[, c("name", "address")]))
+
+# geocode the addresses
+lat_longs <- test_addrs[30001:44128,] %>%
+  geocode(address, 
+          method = 'google',
+          lat = latitude , 
+          long = longitude, 
+          full_results = FALSE)
+
+con <- get_db_conn()
+dbWriteTable(con, c("data_commons", "virginia_primary_care_doctors_geolocated"), lat_longs, overwrite = F, append = T, row.names = F)
+dbDisconnect(con)
+```
+
+## Reverse Geocode to Add Census Geographies using FCC API
+```{r}
+con <- get_db_conn()
+va_docs <- dbGetQuery(con, "SELECT * FROM data_commons.virginia_primary_care_doctors_geolocated")
+dbDisconnect(con)
+
+# add unique id column
+va_docs$id <- 1:nrow(va_docs) 
+
+va_docs_sample <- va_docs[1:10,]
+
+ic <- ichunk(1:nrow(va_docs), 500)
+
+it <- iter(va_docs, by = "row", chunksize = 10)
+
+for (i in 1:nrow(va_docs)) {
+  locs <- loc.lat_lon2geo_areas(place_id = va_docs$id[i], lat = va_docs$latitude[i], lon = va_docs$longitude[i])
+  Sys.sleep(0.5)
+  if (exists("locs_dt")) {
+    locs_dt <- rbindlist(list(locs_dt, locs))
+  } else {
+    locs_dt <- locs
+  }
+}
+```
+
+## Get census blocks by st_intersect with Virginia and surrounding state block maps
+```{r}
+
+con <- get_db_conn() 
+docs <- dbGetQuery(con, "select * from data_commons.virginia_primary_care_doctors_geolocated")
+dbDisconnect(con)
+  
+docs_sf <- st_as_sf(docs[!is.na(docs$latitude) & !is.na(docs$longitude),], coords = c("longitude", "latitude"), crs=4326)
+
+blk_map_path_51 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_51_tabblock10.RDS") 
+blk_map_path_54 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_54_tabblock10.RDS")
+blk_map_path_37 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_37_tabblock10.RDS")
+blk_map_path_24 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_24_tabblock10.RDS")
+blk_map_path_11 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_11_tabblock10.RDS")
+blk_map_path_47 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_47_tabblock10.RDS")
+blk_map_path_42 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_42_tabblock10.RDS")
+blk_map_path_21 <- paste0("/home/ads7fg/sdad/projects_data/usda/bb/original/censusblocks/blocks_TIGER2018_sf_RDS/tl_2018_21_tabblock10.RDS")
+
+blk_map_51 <- readRDS(blk_map_path_51)  
+blk_map_54 <- readRDS(blk_map_path_54) 
+blk_map_37 <- readRDS(blk_map_path_37) 
+blk_map_24 <- readRDS(blk_map_path_24) 
+blk_map_47 <- readRDS(blk_map_path_47) 
+blk_map_42 <- readRDS(blk_map_path_42) 
+blk_map_21 <- readRDS(blk_map_path_21) 
+blk_map_11 <- readRDS(blk_map_path_11)
+blk_map_11$STATEFP <- NULL
+blk_map_11$COUNTYFP <- NULL
+
+blk_map <- bind_rows(list(blk_map_11, blk_map_21, blk_map_24, blk_map_37, blk_map_42, blk_map_47, blk_map_51, blk_map_54)) %>% sf::st_transform(4326)
+
+int <- sf::st_intersects(docs_sf, blk_map) 
+int2 <- as.integer(as.character(int)) 
+docs_sf$geoid_blk <- as.character(blk_map$GEOID10[unlist(int2)]) 
+```
+
+## Upload to Database
+```{r}
+con <- get_db_conn() 
+st_write(docs_sf, con, c("data_commons", "virginia_primary_care_doctors_geolocated_blks"))
+dbDisconnect(con)
+```
+
+## Change table owner
+```{r}
+con <- get_db_conn() 
+dbSendQuery(con, "ALTER TABLE data_commons.virginia_primary_care_doctors_geolocated_blks OWNER TO data_commons")
+dbDisconnect(con)
+```
+
+## Remove Duplicates
+```{r}
+con <- get_db_conn()
+dbSendQuery(con, "SELECT DISTINCT * INTO data_commons.virginia_primary_care_doctors_geolocated_blks_unq FROM data_commons.virginia_primary_care_doctors_geolocated_blks")
+dbSendQuery(con, "DROP TABLE data_commons.virginia_primary_care_doctors_geolocated_blks")
+dbSendQuery(con, "ALTER TABLE data_commons.virginia_primary_care_doctors_geolocated_blks_unq RENAME TO virginia_primary_care_doctors_geolocated_blks")
+dbSendQuery(con, "ALTER TABLE data_commons.virginia_primary_care_doctors_geolocated_blks OWNER TO data_commons")
+dbDisconnect(con)
+```
+

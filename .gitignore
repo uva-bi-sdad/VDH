@@ -1,3 +1,7 @@
+# Data files
+.csv
+.CSV
+
 # History files
 .Rhistory
 .Rapp.history
@@ -37,3 +41,4 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+.Rproj.user
