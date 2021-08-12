@@ -31,17 +31,74 @@ vhd_data <- readRDS("health_district_data.rds")
 tract_data <- readRDS("tract_prototype_data.rds")
 county_data <- readRDS("county_data.rds")
 
-rural_cty_data <- county_data %>%
-  filter(srhp_rural == 'rural')
+rural_hd_data <- vhd_data %>%
+  filter(hd_rural == 'rural')
 
-urban_cty_data <- county_data %>%
-  filter(srhp_rural == 'urban') 
+urban_hd_data <- vhd_data %>%
+  filter(hd_rural == 'mixed')
 
 
 # color palettes -------------------
 
 oranges <- brewer.pal(n=6, name = 'Oranges')
 
+
+#
+# UI FUNCTIONS -------------------------------------
+#
+
+composite_map_box_ui <- function(box_title, map_name)
+{
+  box(
+    title = box_title,
+    width = 12,
+    collapsible = TRUE,
+    leafletOutput(map_name)
+  )
+}
+
+measure_box_ui <- function(box_title, plot_name)
+{
+  box(
+    title = box_title,
+    width = 12,
+    collapsible = TRUE,
+    plotlyOutput(plot_name, height = "250px")
+  )
+}
+
+plot_options_ui <- function(input_id1, input_id2)
+{
+  dropdown(
+    style = "simple", 
+    icon = icon("gear"),
+    status = "primary",  # color
+    label = "Plot Options",
+    size = 'sm',
+    #up = TRUE,
+    right = TRUE,
+    width = "200px",
+    #animate = animateOptions(
+    #  enter = animations$fading_entrances$fadeInLeftBig,
+    #  exit = animations$fading_exits$fadeOutRightBig
+    #),
+    tags$h4("Global Plot Options"),
+    
+    selectInput(
+      inputId = input_id1,
+      label = "Boxplots Toggle",
+      choices = c("On", "Off"),
+      selected = "On"
+    ),
+    
+    selectInput(
+      inputId = input_id2,
+      label = "Line Plots Toggle",
+      choices = c("Both", "Rural", "Urban", "Off"),
+      selected = "Both"
+    )
+  )
+}
 
 #
 # USER INTERFACE ---------------------------------------------------------------------------
@@ -70,7 +127,6 @@ ui <- dashboardPage(
         downloadButton("downloadData", "Download") 
       )
     
-    #)
   ),
   
   # sidebar menu ------------------------------------------------------
@@ -127,7 +183,6 @@ ui <- dashboardPage(
         menuItem(text = "Healthy Minds, Body and Spirit", tabName = "mind-body-spirit", icon = icon("theater-masks")),
         menuItem(text = "Aging in Place and Addressing Social Isolation", tabName = "aging", icon = icon("theater-masks")),
         menuItem(text = "COVID-19 Pandemic", tabName = "covid", icon = icon("theater-masks")),
-        
         hr(),
         menuItem(text = "Data and Methods", tabName = "data", icon = icon("info-circle"),
                  menuSubItem(text = "Measures Table", tabName = "datamethods"),
@@ -141,12 +196,37 @@ ui <- dashboardPage(
   ),
   
   
+  # # right side menu 
+  # controlbar = dashboardControlbar(
+  #   id = "plot_controls",
+  #   overlay = FALSE,
+  #   p("test")
+  # ),
+  
+  
   # dashboard body ----------------------------------------------------
   
   body = dashboardBody(
     
     tabItems(
       
+      #
+      # COMMUNITY CAPITALS LANDING - test tab for now -------------------
+      #
+      
+      tabItem(
+        tabName = 'capitals',
+        p('Capitals Test')
+      ),      
+      
+      #
+      # VDH LANDING - test tab for now -----------------------------
+      #
+      
+      tabItem(
+        tabName = 'vdh-landing',
+        p('VDH Test')
+      ),
       
       #
       # HEALTH ACCESS ----------------------------------------------
@@ -168,63 +248,21 @@ ui <- dashboardPage(
           tabPanel(
             "Local Health District Data", 
             br(),
-            #p("composite and measures. state map in local health districts. compare across health districst.")),
           
             fluidRow(
-              
-              column(
-                width = 12,
-                
-                box(
-                  title = "Health Care Access Composite Measure",
-                  width = 12,
-                  collapsible = TRUE,
-                  leafletOutput("vhd_health_access_comp_map")
-                )
-              )
+              column(width = 12, composite_map_box_ui("Health Care Access Composite Measure", "vhd_health_access_comp_map"))
             ),
             
             # plot options 
-            
             fluidRow(
-              
-              column(1),
-              
-              column(
-                width = 2,
-                
-                radioButtons("hd_boxplots", 
-                             label = h4("Boxplots"),
-                             choices = list("On" = 1, "Off" = 0), 
-                             selected = 1)
-              ),
-              
- 
-              column(
-                width = 4,
-                
-                radioButtons("hd_rurality", 
-                             label = h4("Rural and Urban Parallel Coordinates"),
-                             choices = list("Both" = 1, "Rural Only" = 2, "Urban Only" = 3, "None" = 0), 
-                             selected = 1)
-              )
-              
+              column(10),
+              column(width = 2, plot_options_ui("hd_boxplots", "hd_rurality"))
             ),
+            br(),
             
             # Measure plots
-            
             fluidRow(
-              
-              column(
-                width = 6,
-                
-                box(
-                  title = "No Health Insurance",
-                  width = 12,
-                  collapsible = TRUE,
-                  plotlyOutput("hd_m1_plot", height = "350px")
-                )
-              )
+              column(width = 6, measure_box_ui("No Health Insurance", "hd_m1_plot"))
             )  
             
           ),
@@ -233,7 +271,6 @@ ui <- dashboardPage(
           tabPanel(
             "County Data", 
             br(),
-            #p("composite and measures. state map in counties. compare across counties. Measures colored by rurality."),
             
             fluidRow(
               column(
@@ -242,74 +279,27 @@ ui <- dashboardPage(
                   inputId = "hlth_district",
                   label = "Choose a Health District",
                   choices = c("All", c(unique(county_data$HealthDistrict)[sort.list(unique(county_data$HealthDistrict))])),
-                  #selected = "All"
-                  #selectize = TRUE)
+                  selected = "All"
                 )
               )
-              
             ),
             
             
-            # Composite Map ---------------------
-            
+            # Composite Map 
             fluidRow(
-              
-              column(
-                width = 12,
-                
-                box(
-                  title = "Health Care Access Composite Measure",
-                  width = 12,
-                  collapsible = TRUE,
-                  leafletOutput("cty_health_access_comp_map")
-                )
-              )
+              column(width = 12, composite_map_box_ui("Health Care Access Composite Measure", "cty_health_access_comp_map"))
             ),
             
             # plot options 
-            
             fluidRow(
-              
-              column(1),
-              
-              column(
-                width = 2,
-                
-                radioButtons("boxplots", 
-                             label = h4("Boxplots"),
-                             choices = list("On" = 1, "Off" = 0), 
-                             selected = 1)
-              ),
-              
-
-              column(
-                width = 4,
-                
-                radioButtons("rurality", 
-                             label = h4("Rural and Urban Parallel Coordinates"),
-                             choices = list("Both" = 1, "Rural Only" = 2, "Urban Only" = 3, "None" = 0), 
-                             selected = 1)
-              )
-              
+              column(10),
+              column(width = 2, plot_options_ui("boxplots", "rurality"))
             ),
+            br(),
             
-
-            # Measure Plots ------------------
-
-            # row 1 --------------------------
-
+            # Measure Plots 
             fluidRow(
-
-              column(
-                width = 6,
-
-                box(
-                  title = "No Health Insurance",
-                  width = 12,
-                  collapsible = TRUE,
-                  plotlyOutput("cty_m1_plot", height = "350px")
-                )
-              )
+              column(width = 6, measure_box_ui("No Health Insurance", "cty_m1_plot"))
             )  
  
           ),
@@ -319,153 +309,52 @@ ui <- dashboardPage(
           tabPanel(
             "Census Tract Data",
             br(),
-            #p("composite and measures. county map by tracts. compare within county"),
-              
-              # Composite Map ---------------------
               
             fluidRow(
               column(
                 width = 4,
-                  selectInput(
-                    inputId = "cty",
-                    label = "Choose a County",
-                    choices = c(unique(tract_data$county_name)[sort.list(unique(tract_data$county_name))]),
-                    selected = "Accomack"
-                    #selectize = TRUE)
-                  )
+                selectInput(
+                  inputId = "cty",
+                  label = "Choose a County",
+                  choices = c(unique(tract_data$county_name)[sort.list(unique(tract_data$county_name))]),
+                  selected = "Accomack"
+                  #selectize = TRUE)
+                )
               )
             ),
             
-              fluidRow(
-                
-                column(
-                  width = 12,
-                  
-                  box(
-                    title = "Health Care Access Composite Measure",
-                    width = 12,
-                    collapsible = TRUE,
-                    leafletOutput("health_access_comp_map")
-                  )
-                )
-              ),
+            # Composite Map 
+            fluidRow(
+              column(width = 12, composite_map_box_ui("Health Care Access Composite Measure", "health_access_comp_map"))
+            ),
               
-              
-              # Measure Plots ------------------
-              
-              # row 1 --------------------------
-              
-              fluidRow(
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "No Health Insurance",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m1_plot", height = "250px")
-                  )
-                ),
-                
-                column(
-                  width = 4,
-    
-                  box(
-                    title = "High Blood Pressure",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m2_plot", height = "250px")
-                  )
-                ),
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "Cancer",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m3_plot", height = "250px")
-                  )
-                )
-              
-              ),
-              
-              
-              # row 2 --------------------------
-              
-              fluidRow(
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "High Cholesterol",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m4_plot", height = "250px")
-                  )
-                ),
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "Obesity",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m5_plot", height = "250px")
-                  )
-                ),
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "Diabetes",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m6_plot", height = "250px")
-                  )
-                )
-                
-              ),
-              
-              
-              # row 3 -----------------------------
-              
-              fluidRow(
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "Mental Health",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m7_plot", height = "250px")
-                  )
-                ),
-                
-                column(
-                  width = 4,
-                  
-                  box(
-                    title = "Physical Health",
-                    width = 12,
-                    collapsible = TRUE,
-                    plotlyOutput("m8_plot", height = "250px")
-                  )
-                )
-                
-              )
+            # plot options 
+            fluidRow(
+              column(10),
+              column(width = 2, plot_options_ui("ct_boxplots", "ct_rurality"))
+            ),
+            br(),
+            
+            # Measure Plots
+            fluidRow(
+              column(width = 4, measure_box_ui("No Health Insurance", "m1_plot")),
+              column(width = 4, measure_box_ui("High Blood Pressure", "m2_plot")),
+              column(width = 4, measure_box_ui("Cancer", "m3_plot"))
+            ),
+            
+            fluidRow(
+              column(width = 4, measure_box_ui("High Cholesterol", "m4_plot")),
+              column(width = 4, measure_box_ui("Obesity", "m5_plot")),
+              column(width = 4, measure_box_ui("Diabetes", "m6_plot"))
+            ),
+            
+            fluidRow(
+              column(width = 4, measure_box_ui("Mental Health", "m7_plot")),
+              column(width = 4, measure_box_ui("Physical Health", "m8_plot"))
+            )
+        
           )
-          
         )
-        
-        
-        # Next tab here
       )
     )
   )
@@ -488,6 +377,7 @@ server <- function(input, output, session) {
   # })
   # 
   
+  
   #
   # Reactive Switches ----------------------------------------------------
   #
@@ -500,6 +390,20 @@ server <- function(input, output, session) {
       filter(county_name == input$cty)
     
   })  
+  
+  # filter to rural chosen data
+  rural_tract_data <- reactive({
+    chosen_county_data() %>%
+      filter(srhp_rural == 'rural')
+  })
+  
+  # filter to urban chosen data 
+  urban_tract_data <- reactive({
+    chosen_county_data() %>%
+      filter(srhp_rural == 'urban')
+  })
+  
+  
   
   # County data tab reactive filter - choosing a health district 
   
@@ -515,6 +419,18 @@ server <- function(input, output, session) {
         filter(HealthDistrict == input$hlth_district)
     }
     
+  })
+  
+  # filter to rural chosen data
+  rural_cty_data <- reactive({
+    chosen_hd_data() %>%
+    filter(srhp_rural == 'rural')
+  })
+  
+  # filter to urban chosen data 
+  urban_cty_data <- reactive({
+    chosen_hd_data() %>%
+    filter(srhp_rural == 'urban')
   })
   
   
@@ -551,14 +467,6 @@ server <- function(input, output, session) {
         stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
         popup = ~labels,
         layerId = ~census_tract_fips
-        #   labelOptions = labelOptions(
-        #     direction = "bottom",
-        #     style = list(
-        #       "font-size" = "12px",
-        #       "border-color" = "rgba(0,0,0,0.5)",
-        #       direction = "auto"
-        #       )
-        #   )
       ) %>%
       addLegend(
         position = "bottomleft",
@@ -601,14 +509,6 @@ server <- function(input, output, session) {
         stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
         popup = ~labels,
         layerId = ~county_id
-        #   labelOptions = labelOptions(
-        #     direction = "bottom",
-        #     style = list(
-        #       "font-size" = "12px",
-        #       "border-color" = "rgba(0,0,0,0.5)",
-        #       direction = "auto"
-        #       )
-        #   )
       ) %>%
       addLegend(
         position = "bottomleft",
@@ -651,14 +551,6 @@ server <- function(input, output, session) {
         stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
         popup = ~labels,
         layerId = ~fid
-        #   labelOptions = labelOptions(
-        #     direction = "bottom",
-        #     style = list(
-        #       "font-size" = "12px",
-        #       "border-color" = "rgba(0,0,0,0.5)",
-        #       direction = "auto"
-        #       )
-        #   )
       ) %>%
       addLegend(
         position = "bottomleft",
@@ -671,946 +563,97 @@ server <- function(input, output, session) {
   })
   
   
-  output$m1_plot <- renderPlotly({
+  #
+  # Plotly Measure Plot function -----------------------------
+  #
+  
+  measure_plot <- function(urban_data, rural_data, all_data, var_name, label_name, tab_geo)
+  {
+    print("drawing")
+    
+    # SET TRACE VISIBILITY according to plot controls.  order = urban, rural, boxplots
+    vis_traces = c(TRUE, TRUE, TRUE)
 
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'box',
-      x = chosen_county_data()$year,
-      y = ~chosen_county_data()$no_health_ins,
-      fillcolor = "white",
-      line = list(color = "#787878"),
-      showlegend = FALSE
-    ) %>% add_trace(
-        type = 'scatter',
-        x = chosen_county_data()$year,
-        y = chosen_county_data()$no_health_ins,
-        text = paste0("Tract ", chosen_county_data()$tract_name),
-        hoverinfo = 'text',
-        mode = 'lines+markers',
-        marker = list(color = 'lightgray'),
-        line = list(color = 'lightgray'),
-        transforms = list(
-          list(
-            type = 'groupby',
-            groups = chosen_county_data()$tract_name
-          )
-        ),
-        inherit = FALSE,
-        showlegend = FALSE
-    ) %>% layout(
-        #title = "Measure 1 Over Time",
-        #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-        xaxis = list(
-          title = "Year",
-          zeroline = FALSE
-          #showticklabels = FALSE
-        ),
-        yaxis = list(
-          title = "Value",
-          type = "numeric", hoverformat = ".2f",
-          zeroline = FALSE
-          #showticklabels = FALSE
-        )
-        #autosize = F, height = 500
-      )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-   
-    if(!is.null(input$health_access_comp_map_shape_click$id))
+    if(tab_geo == "county")
     {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m1_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 2) # delete the third trace (if it exists)
-        
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m1_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$no_health_ins,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-      
-      
-  output$m2_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$bphigh_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m2_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m2_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$bphigh_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m3_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$cancer_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m3_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m3_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$cancer_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  # row 2--------------------
-  
-  output$m4_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$highchol_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m4_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m4_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$highchol_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m5_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$obesity_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m5_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m5_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$obesity_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m6_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$diabetes_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m6_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m6_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$diabetes_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  # row 3 --------------------------
-  
-  output$m7_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$mhlth_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m7_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m7_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$mhlth_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m8_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$phlth_crudeprev,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m8_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m8_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$phlth_crudeprev,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m9_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$health_access,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m9_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m9_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$health_access,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  # row 4 -----------------------
-  
-  output$m10_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$total_jobs,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m10_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m10_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$total_jobs,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-  
-  
-  output$m11_plot <- renderPlotly({
-    
-    # line plot of all tracts in county
-    p <- plot_ly(
-      type = 'scatter',
-      x = chosen_county_data()$year,
-      y = chosen_county_data()$pct_jobs_in_young_firms,
-      text = paste0("Tract ", chosen_county_data()$tract_name),
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = chosen_county_data()$tract_name
-        )
-      ),
-      showlegend = FALSE
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-    )
-    
-    p
-    
-  })
-  
-  
-  # add trace in a different color of tract that was clicked on
-  observe({
-    
-    if(!is.null(input$health_access_comp_map_shape_click$id))
-    {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("m11_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 1)
-      
-      click_data <- chosen_county_data() %>%
-        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-      
-      plotlyProxy("m11_plot", session) %>%
-        plotlyProxyInvoke(
-          "addTraces", 
-          list(
-            type = 'scatter',
-            x = click_data$year,
-            y = click_data$pct_jobs_in_young_firms,
-            text = paste0("Tract ", click_data$tract_name),
-            hoverinfo = 'text',
-            mode = 'markers+lines',
-            marker = list(color = 'steelblue'),
-            line = list(color = 'steelblue')
-            #inherit = FALSE,
-            #showlegend = FALSE
-          )
-        )
-    } 
-    
-  })
-
-
-  # data download -------------------------------
-  
-  output$downloadData <- downloadHandler(
-    filename = function() {
-      paste("Health-Access-Data-", input$download_choice, ".xlsx", sep="")
-    },
-    content = function(file) {
-      if(input$download_choice == "Health Access")
+      # parallel coords
+      if(isolate(input$rurality) == "Both")
       {
-        dat <- tract_data 
-        dat$geometry <- NULL
-        
-        write.xlsx(dat, file)
+        vis_traces[1] = TRUE
+        vis_traces[2] = TRUE
       }
-      else
+      else if(isolate(input$rurality) == "Rural")
       {
-        # do nothing
+        vis_traces[1] = FALSE
+        vis_traces[2] = TRUE
+      }
+      else if(isolate(input$rurality) == "Urban")
+      {
+        vis_traces[1] = TRUE
+        vis_traces[2] = FALSE
+      }
+      else # neither
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = FALSE
+      }
+      
+      # boxplots
+      if(isolate(input$boxplots) == "Off")
+      {
+        vis_traces[3] = FALSE
+      }
+      else # on
+      {
+        vis_traces[3] = TRUE
       }
     }
-  )
-  
-  
-  # old template for measure plots
-  
-  # output$m1_plot <- renderPlotly({
-  #   
-  #   if(input$cty == "All Counties"){
-  #     # do nothing
-  #   }
-  #   else
-  #   {
-  #     # line plot of all tracts in county
-  #     p <- plot_ly(
-  #       type = 'scatter',
-  #       x = chosen_county_data()$year,
-  #       y = chosen_county_data()$pct_pop_unemploy,
-  #       text = paste0("Tract ", chosen_county_data()$tract_name),
-  #       hoverinfo = 'text',
-  #       mode = 'lines+markers',
-  #       marker = list(color = 'lightgray'),
-  #       line = list(color = 'lightgray'),
-  #       transforms = list(
-  #         list(
-  #           type = 'groupby',
-  #           groups = chosen_county_data()$tract_name
-  #         )
-  #       ),
-  #       showlegend = FALSE
-  #     )
-  #     
-  #     # add trace in a different color of tract that was clicked on
-  #     if(!is.null(input$health_access_comp_map_shape_click$id))
-  #     {
-  #       click_data <- chosen_county_data() %>%
-  #         filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
-  #       
-  #       p <- p %>%
-  #         add_trace(
-  #           type = 'scatter',
-  #           x = click_data$year,
-  #           y = click_data$pct_pop_unemploy,
-  #           text = paste0("Tract ", click_data$tract_name),
-  #           hoverinfo = 'text',
-  #           mode = 'markers+lines',
-  #           marker = list(color = 'steelblue'),
-  #           line = list(color = 'steelblue'),
-  #           inherit = FALSE,
-  #           showlegend = FALSE
-  #         )
-  #     }
-  #     
-  #     # lables and layout of plot
-  #     p <- p %>%
-  #       layout(
-  #         #title = "Measure 1 Over Time",
-  #         #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-  #         xaxis = list(
-  #           title = "Year",
-  #           zeroline = FALSE
-  #           #showticklabels = FALSE
-  #         ),
-  #         yaxis = list(
-  #           title = "Value",
-  #           type = "numeric", hoverformat = ".2f",
-  #           zeroline = FALSE
-  #           #showticklabels = FALSE
-  #         )
-  #         #autosize = F, height = 500
-  #       )
-  #     
-  #     p
-  #   }
-  #   
-  # })
-  
-  
-  # county measure plots -------------------------------------------------
-  
-  output$cty_m1_plot <- renderPlotly({
+     
+    if(tab_geo == "tract")
+    {
+      # parallel coords
+      if(isolate(input$ct_rurality) == "Both")
+      {
+        vis_traces[1] = TRUE
+        vis_traces[2] = TRUE
+      }
+      else if(isolate(input$ct_rurality) == "Rural")
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = TRUE
+      }
+      else if(isolate(input$ct_rurality) == "Urban")
+      {
+        vis_traces[1] = TRUE
+        vis_traces[2] = FALSE
+      }
+      else # neither
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = FALSE
+      }
+      
+      # boxplots
+      if(isolate(input$ct_boxplots) == "Off")
+      {
+        vis_traces[3] = FALSE
+      }
+      else # on
+      {
+        vis_traces[3] = TRUE
+      }
+    }
     
-    rural_cty_data <- chosen_hd_data() %>%
-      filter(srhp_rural == 'rural')
+     
+    # PLOT
     
-    urban_cty_data <- chosen_hd_data() %>%
-      filter(srhp_rural == 'urban') 
-    
-
     # line plots - urban    
     p <- plot_ly(
+      data = urban_data,
       type = 'scatter',
-      x = urban_cty_data$year,
-      y = urban_cty_data$no_health_ins,
-      text = paste0(urban_cty_data$county_name, " County"),
+      x = ~year,
+      y = as.formula(paste0("~", var_name)),     
+      text = as.formula(paste0("~", label_name)),
       hoverinfo = 'text',
       mode = 'lines+markers',
       marker = list(color = 'lightgray'),
@@ -1618,18 +661,20 @@ server <- function(input, output, session) {
       transforms = list(
         list(
           type = 'groupby',
-          groups = urban_cty_data$county_name
+          groups = as.formula(paste0("~", label_name)) 
         )
       ),
       #inherit = FALSE,
+      visible = vis_traces[1],
       showlegend = FALSE
       
       # line plots - rural
     ) %>% add_trace(
+      data = rural_data,
       type = 'scatter',
-      x = rural_cty_data$year,
-      y = rural_cty_data$no_health_ins,
-      text = paste0(rural_cty_data$county_name, " County"),
+      x = ~year,
+      y = as.formula(paste0("~", var_name)),
+      text = as.formula(paste0("~", label_name)),
       hoverinfo = 'text',
       mode = 'lines+markers',
       marker = list(color = 'lightgreen'),
@@ -1637,24 +682,27 @@ server <- function(input, output, session) {
       transforms = list(
         list(
           type = 'groupby',
-          groups = rural_cty_data$county_name
+          groups = as.formula(paste0("~", label_name))
         )
       ),
+      visible = vis_traces[2],
       inherit = FALSE,
       showlegend = FALSE  
-
+      
       # box plots
     ) %>% add_trace(
-        type = 'box',
-        x = county_data$year,
-        y = county_data$no_health_ins,
-        fillcolor = 'transparent',
-        line = list(color = "#787878"),
-        marker = list(color = "#787878"),
-        inherit = FALSE,
-        showlegend = FALSE  
-            
-    # layout  
+      data = all_data,
+      type = 'box',
+      x = ~year,
+      y = as.formula(paste0("~", var_name)),
+      fillcolor = 'transparent',
+      line = list(color = "#787878"),
+      marker = list(color = "#787878"),
+      visible = vis_traces[3],
+      inherit = FALSE,
+      showlegend = FALSE  
+      
+      # layout  
     ) %>% layout(
       #title = "Measure 1 Over Time",
       #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
@@ -1678,8 +726,196 @@ server <- function(input, output, session) {
             }
           }")
     
-    p
+  }
+  
+  # tract measure plots ----------------------------------------
+  
+  output$m1_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "no_health_ins", "tract_name", "tract")
+  })
+  
+  output$m2_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "bphigh_crudeprev", "tract_name", "tract")
+  })
+  
+  output$m3_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "cancer_crudeprev", "tract_name", "tract")
+  })
+  
+  output$m4_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "highchol_crudeprev", "tract_name", "tract")
+  })
     
+  output$m5_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "obesity_crudeprev", "tract_name", "tract")
+  })
+  
+  output$m6_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "diabetes_crudeprev", "tract_name", "tract")
+  })
+  
+  output$m7_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "mhlth_crudeprev", "tract_name", "tract")
+  })
+  
+  output$m8_plot <- renderPlotly({
+    measure_plot(urban_tract_data(), rural_tract_data(), chosen_county_data(), "phlth_crudeprev", "tract_name", "tract")
+  })
+  
+  
+  #
+  # Observe Events for tract measure plots -------------------------
+  #
+  
+  observe({
+    
+    if(!is.null(input$health_access_comp_map_shape_click$id))
+    {
+      click_data <- chosen_county_data() %>%
+        filter(census_tract_fips == input$health_access_comp_map_shape_click$id)
+      
+      m_name = c("no_health_ins", "bphigh_crudeprev", "cancer_crudeprev", "highchol_crudeprev",
+                 "obesity_crudeprev", "diabetes_crudeprev", "mhlth_crudeprev", "phlth_crudeprev")
+      
+      
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+        
+        # remove previously chosen tract (if there was one)
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("deleteTraces", 3) # delete the fourth trace (if it exists)        
+        
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("addTraces", 
+            list(
+              #data = click_data,
+              type = 'scatter',
+              x = click_data$year,
+              y = click_data[[m_name[i]]], 
+              text = click_data$tract_name,       
+              hoverinfo = 'text',
+              mode = 'markers+lines',
+              marker = list(color = 'steelblue'),
+              line = list(color = 'steelblue')
+              #inherit = FALSE,
+              #showlegend = FALSE
+            )
+          )
+      }
+    } 
+  })
+  
+  
+  # plot toggles are causing a problem with county data selection. if boxplots are off - only 1st plot is being updated with county switch
+  
+  # toggle boxplots
+  observeEvent(input$ct_boxplots, {
+    
+    if(input$ct_boxplots == "Off")
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+        
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
+      }
+    }
+    else
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+      
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("restyle", list(visible = TRUE), 2)
+      }
+    }
+    
+  }) 
+  
+  
+  # rural/urban toggle
+  observeEvent(input$ct_rurality, {
+    
+    if(input$ct_rurality == "Off") # none
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+      
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
+      }
+    }
+    else if(input$ct_rurality == "Both") # both
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+      
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
+      }
+    }
+    else if(input$ct_rurality == "Rural") # rural only
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+        
+        plotlyProxy("p_name", session) %>%
+          plotlyProxyInvoke("restyle", list(visible = FALSE), 0) %>%
+          plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
+      }
+    }
+    else # urban only
+    {
+      for(i in 1:8) # 8=number of plots on tract page
+      {
+        p_name = paste0("m", i, "_plot")
+
+        plotlyProxy(p_name, session) %>%
+          plotlyProxyInvoke("restyle", list(visible = FALSE), 1) %>%
+          plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
+      }
+    }
+    
+  }) 
+  
+  
+  
+  #
+  # Data Download -----------------------------------------------------
+  #
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("Health-Access-Data-", input$download_choice, ".xlsx", sep="")
+    },
+    content = function(file) {
+      if(input$download_choice == "Health Access")
+      {
+        dat <- tract_data 
+        dat$geometry <- NULL
+        
+        write.xlsx(dat, file)
+      }
+      else
+      {
+        # do nothing
+      }
+    }
+  )
+  
+  
+  #
+  # county measure plots -------------------------------------------------
+  #
+  
+  output$cty_m1_plot <- renderPlotly({
+    measure_plot(urban_cty_data(), rural_cty_data(), county_data, "no_health_ins", "county_name", "county")
   })
   
   
@@ -1688,21 +924,20 @@ server <- function(input, output, session) {
     
     if(!is.null(input$cty_health_access_comp_map_shape_click$id))
     {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("cty_m1_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 3) # delete the fourth trace (if it exists)
-      
       click_data <- chosen_hd_data() %>%
         filter(county_id == input$cty_health_access_comp_map_shape_click$id)
       
       plotlyProxy("cty_m1_plot", session) %>%
+        plotlyProxyInvoke("deleteTraces", 3) %>% # delete the fourth trace (prev chosen tract - if it exists)
+      
+        # add chosen tract in blue
         plotlyProxyInvoke(
           "addTraces", 
           list(
             type = 'scatter',
             x = click_data$year,
             y = click_data$no_health_ins,
-            text = paste0(click_data$county_name, "County"),
+            text = paste0(click_data$county_name, " County"),
             hoverinfo = 'text',
             mode = 'markers+lines',
             marker = list(color = 'steelblue'),
@@ -1718,7 +953,7 @@ server <- function(input, output, session) {
   # toggle boxplots
   observeEvent(input$boxplots, {
     
-    if(input$boxplots == 0)
+    if(input$boxplots == "Off")
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
@@ -1731,47 +966,30 @@ server <- function(input, output, session) {
     
   }) 
   
-  # # toggle parallel coordinates
-  # observeEvent(input$par_coords, {
-  #   
-  #   if(input$par_coords == 0)
-  #   {
-  #     plotlyProxy("cty_m1_plot", session) %>%
-  #       plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
-  #   }
-  #   else
-  #   {
-  #     plotlyProxy("cty_m1_plot", session) %>%
-  #       plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
-  #   }
-  #   
-  # }) 
 
   # rural/urban toggle
   observeEvent(input$rurality, {
     
-    if(input$rurality == 0) # none
+    if(input$rurality == "Off") # none
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))      
     }
-    else if(input$rurality == 1) # both
+    else if(input$rurality == "Both") # both
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
     }
-    else if(input$rurality == 2) # rural only
+    else if(input$rurality == "Rural") # rural only
     {
       plotlyProxy("cty_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 0)
-      plotlyProxy("cty_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 0) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
     }
     else # urban only
     {
       plotlyProxy("cty_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 1)
-      plotlyProxy("cty_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 1) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
       
     }
@@ -1779,94 +997,13 @@ server <- function(input, output, session) {
   }) 
 
   
-  
+  #
   # health district measure plots -------------------------------------------------
+  #
   
   output$hd_m1_plot <- renderPlotly({
-    
-    rural_hd_data <- vhd_data %>%
-      filter(hd_rural == 'rural')
-    
-    urban_hd_data <- vhd_data %>%
-      filter(hd_rural == 'mixed')
-    
-    
-    # line plots - urban    
-    p <- plot_ly(
-      type = 'scatter',
-      x = urban_hd_data$year,
-      y = urban_hd_data$no_health_ins,
-      text = urban_hd_data$health_district,
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgray'),
-      line = list(color = 'lightgray'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = urban_hd_data$health_district
-        )
-      ),
-      #inherit = FALSE,
-      showlegend = FALSE
-      
-      # line plots - rural
-    ) %>% add_trace(
-      type = 'scatter',
-      x = rural_hd_data$year,
-      y = rural_hd_data$no_health_ins,
-      text = rural_hd_data$health_district,
-      hoverinfo = 'text',
-      mode = 'lines+markers',
-      marker = list(color = 'lightgreen'),
-      line = list(color = 'lightgreen'),
-      transforms = list(
-        list(
-          type = 'groupby',
-          groups = rural_hd_data$health_district
-        )
-      ),
-      inherit = FALSE,
-      showlegend = FALSE  
-      
-      # box plots
-    ) %>% add_trace(
-      type = 'box',
-      x = vhd_data$year,
-      y = vhd_data$no_health_ins,
-      fillcolor = 'transparent',
-      line = list(color = "#787878"),
-      marker = list(color = "#787878"),
-      inherit = FALSE,
-      showlegend = FALSE  
-      
-      # layout  
-    ) %>% layout(
-      #title = "Measure 1 Over Time",
-      #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
-      xaxis = list(
-        title = "Year",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      ),
-      yaxis = list(
-        title = "Value",
-        type = "numeric", hoverformat = ".2f",
-        zeroline = FALSE
-        #showticklabels = FALSE
-      )
-      #autosize = F, height = 500
-      
-    ) %>% onRender("function(p){
-            var e = p.getElementsByClassName('boxlayer')
-                   if(e && e[0].parentElement){
-                   e[0].parentElement.appendChild(e[0].parentElement.children[0])
-                   }
-  }")
-    
-    p
-    
-    })
+    measure_plot(urban_hd_data, rural_hd_data, vhd_data, "no_health_ins", "health_district", "hd")
+  })
   
 
   # add trace in a different color of tract that was clicked on
@@ -1874,14 +1011,13 @@ server <- function(input, output, session) {
 
     if(!is.null(input$vhd_health_access_comp_map_shape_click$id))
     {
-      # remove previously chosen tract (if there was one)
-      plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 3) # delete the fourth trace (if it exists)
-
       click_data <- vhd_data %>%
         filter(fid == input$vhd_health_access_comp_map_shape_click$id)
 
       plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("deleteTraces", 3) %>% # delete the fourth trace (prev chosen tract-if it exists)
+        
+        # add chosen tract in blue
         plotlyProxyInvoke(
           "addTraces",
           list(
@@ -1904,7 +1040,7 @@ server <- function(input, output, session) {
   # toggle boxplots
   observeEvent(input$hd_boxplots, {
 
-    if(input$hd_boxplots == 0)
+    if(input$hd_boxplots == "Off")
     {
       plotlyProxy("hd_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
@@ -1921,30 +1057,30 @@ server <- function(input, output, session) {
   # rural/urban toggle
   observeEvent(input$hd_rurality, {
 
-    if(input$hd_rurality == 0) # none
+    if(input$hd_rurality == "Off") # none
     {
       plotlyProxy("hd_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
+      
+      # add other plotlyProxys here for other plots - we will have an observe event for each tab,
+      # or could do plot controls as global vars so do not have to switch per tab. could use a for loop
     }
-    else if(input$hd_rurality == 1) # both
+    else if(input$hd_rurality == "Both") # both
     {
       plotlyProxy("hd_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
     }
-    else if(input$hd_rurality == 2) # rural only
+    else if(input$hd_rurality == "Rural") # rural only
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 0)
-      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 0) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
     }
     else # urban only
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 1)
-      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), 1) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
-
     }
 
   })
