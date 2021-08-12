@@ -438,25 +438,25 @@ server <- function(input, output, session) {
   
   output$health_access_comp_map <- renderLeaflet({
     
-      map_data <- chosen_county_data() %>%
-        filter(year == 2019)
-      
-      labels <- lapply(
-        paste("<strong>County: </strong>",
-              map_data$county_name,
-              "<br />",
-              "<strong>Census Tract: </strong>",
-              map_data$tract_name,
-              "<br />",
-              "<strong>Health Access Score: </strong>",
-              paste0(100*round(map_data$health_access, 2), "%") 
-        ),
-        htmltools::HTML
-      )
-      
-      # I think the problem is in the palette
-      pal <- colorQuantile(palette ="Oranges", domain = tract_data[tract_data$year == 2019, ]$health_access, 
-                           probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
+    map_data <- chosen_county_data() %>%
+      filter(year == 2019)
+    
+    labels <- lapply(
+      paste("<strong>County: </strong>",
+            map_data$county_name,
+            "<br />",
+            "<strong>Census Tract: </strong>",
+            map_data$tract_name,
+            "<br />",
+            "<strong>Health Access Score: </strong>",
+            paste0(100*round(map_data$health_access, 2), "%") 
+      ),
+      htmltools::HTML
+    )
+    
+    overall_health_access <- tract_data[tract_data$year == 2019, "health_access", drop = TRUE]
+    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
+                         probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
 
     
     leaflet(data = map_data) %>%
@@ -471,7 +471,7 @@ server <- function(input, output, session) {
       addLegend(
         position = "bottomleft",
         pal = pal,
-        values =  ~health_access,
+        values =  ~overall_health_access,
         title = "Health Access Score",
         opacity = 0.7,
         na.label = "Not Available")
@@ -495,9 +495,9 @@ server <- function(input, output, session) {
       ),
       htmltools::HTML
     )
-    
-    # I think the problem is in the palette
-    pal <- colorQuantile(palette ="Oranges", domain = county_data[county_data$year == 2019, ]$health_access, 
+
+    overall_health_access <- county_data[county_data$year == 2019, "health_access", drop = TRUE]
+    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
                          probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
     
     
@@ -513,7 +513,7 @@ server <- function(input, output, session) {
       addLegend(
         position = "bottomleft",
         pal = pal,
-        values =  ~health_access,
+        values =  ~overall_health_access,
         title = "Health Access Score",
         opacity = 0.7,
         na.label = "Not Available")
@@ -538,8 +538,8 @@ server <- function(input, output, session) {
       htmltools::HTML
     )
     
-    # I think the problem is in the palette
-    pal <- colorQuantile(palette ="Oranges", domain = vhd_data[vhd_data$year == 2019, ]$health_access, 
+    overall_health_access <- vhd_data[vhd_data$year == 2019, "health_access", drop = TRUE]  
+    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
                          probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
     
     
@@ -555,7 +555,7 @@ server <- function(input, output, session) {
       addLegend(
         position = "bottomleft",
         pal = pal,
-        values =  ~health_access,
+        values =  ~overall_health_access,
         title = "Health Access Score",
         opacity = 0.7,
         na.label = "Not Available")
@@ -865,7 +865,7 @@ server <- function(input, output, session) {
       {
         p_name = paste0("m", i, "_plot")
         
-        plotlyProxy("p_name", session) %>%
+        plotlyProxy(p_name, session) %>%
           plotlyProxyInvoke("restyle", list(visible = FALSE), 0) %>%
           plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
       }
