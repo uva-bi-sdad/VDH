@@ -34,8 +34,12 @@ county_data <- readRDS("county_data.rds")
 rural_hd_data <- vhd_data %>%
   filter(hd_rural == 'rural')
 
-urban_hd_data <- vhd_data %>%
+# Need to do something with the mixed data on the health districts tab
+mixed_hd_data <- vhd_data %>%
   filter(hd_rural == 'mixed')
+
+urban_hd_data <- vhd_data %>%
+  filter(hd_rural == "urban")
 
 
 # color palettes -------------------
@@ -67,7 +71,7 @@ measure_box_ui <- function(box_title, plot_name)
   )
 }
 
-plot_options_ui <- function(input_id1, input_id2)
+plot_options_ui <- function(input_id1, input_id2, tab_geo)
 {
   dropdown(
     style = "simple", 
@@ -91,12 +95,25 @@ plot_options_ui <- function(input_id1, input_id2)
       selected = "On"
     ),
     
-    selectInput(
-      inputId = input_id2,
-      label = "Line Plots Toggle",
-      choices = c("Both", "Rural", "Urban", "Off"),
-      selected = "Both"
-    )
+    if(tab_geo == "hd")
+    {
+      selectInput(
+        inputId = input_id2,
+        label = "Line Plots Toggle",
+        choices = c("All", "Rural", "Urban", "Mixed", "Off"),
+        selected = "All"
+      )
+    }
+    else
+    {
+      selectInput(
+        inputId = input_id2,
+        label = "Line Plots Toggle",
+        choices = c("All", "Rural", "Urban", "Off"),
+        selected = "All"
+      )
+    }
+      
   )
 }
 
@@ -256,7 +273,7 @@ ui <- dashboardPage(
             # plot options 
             fluidRow(
               column(10),
-              column(width = 2, plot_options_ui("hd_boxplots", "hd_rurality"))
+              column(width = 2, plot_options_ui("hd_boxplots", "hd_rurality", "hd"))
             ),
             br(),
             
@@ -293,7 +310,7 @@ ui <- dashboardPage(
             # plot options 
             fluidRow(
               column(10),
-              column(width = 2, plot_options_ui("boxplots", "rurality"))
+              column(width = 2, plot_options_ui("boxplots", "rurality", "county"))
             ),
             br(),
             
@@ -331,7 +348,7 @@ ui <- dashboardPage(
             # plot options 
             fluidRow(
               column(10),
-              column(width = 2, plot_options_ui("ct_boxplots", "ct_rurality"))
+              column(width = 2, plot_options_ui("ct_boxplots", "ct_rurality", "tract"))
             ),
             br(),
             
@@ -567,17 +584,17 @@ server <- function(input, output, session) {
   # Plotly Measure Plot function -----------------------------
   #
   
-  measure_plot <- function(urban_data, rural_data, all_data, var_name, label_name, tab_geo)
+  measure_plot <- function(urban_data, rural_data, all_data, var_name, label_name, tab_geo, mixed_data = NULL)
   {
-    print("drawing")
+    #print("drawing")
     
     # SET TRACE VISIBILITY according to plot controls.  order = urban, rural, boxplots
-    vis_traces = c(TRUE, TRUE, TRUE)
+    vis_traces = c(TRUE, TRUE, TRUE, TRUE)
 
     if(tab_geo == "county")
     {
       # parallel coords
-      if(isolate(input$rurality) == "Both")
+      if(isolate(input$rurality) == "All")
       {
         vis_traces[1] = TRUE
         vis_traces[2] = TRUE
@@ -608,11 +625,10 @@ server <- function(input, output, session) {
         vis_traces[3] = TRUE
       }
     }
-     
-    if(tab_geo == "tract")
+    else if(tab_geo == "tract")
     {
       # parallel coords
-      if(isolate(input$ct_rurality) == "Both")
+      if(isolate(input$ct_rurality) == "All")
       {
         vis_traces[1] = TRUE
         vis_traces[2] = TRUE
@@ -643,9 +659,54 @@ server <- function(input, output, session) {
         vis_traces[3] = TRUE
       }
     }
-    
+    else  # tract_geo = hd
+    {
+      # parallel coords
+      if(isolate(input$hd_rurality) == "All")
+      {
+        vis_traces[1] = TRUE
+        vis_traces[2] = TRUE
+        vis_traces[4] = TRUE  
+      }
+      else if(isolate(input$hd_rurality) == "Rural")
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = TRUE
+        vis_traces[4] = FALSE
+      }
+      else if(isolate(input$hd_rurality) == "Urban")
+      {
+        vis_traces[1] = TRUE
+        vis_traces[2] = FALSE
+        vis_traces[4] = FALSE
+      }
+      else if(isolate(input$hd_rurality) == "Mixed")
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = FALSE
+        vis_traces[4] = TRUE
+      }
+      else # neither
+      {
+        vis_traces[1] = FALSE
+        vis_traces[2] = FALSE
+        vis_traces[4] = FALSE
+      }
+      
+      # boxplots
+      if(isolate(input$hd_boxplots) == "Off")
+      {
+        vis_traces[3] = FALSE
+      }
+      else # on
+      {
+        vis_traces[3] = TRUE
+      }
+    }
      
-    # PLOT
+    
+    # PLOT -- throws a warning if one of urban or rural data are empty, but plot is still correct
+    # also throws a warning if there is missing data
     
     # line plots - urban    
     p <- plot_ly(
@@ -701,9 +762,35 @@ server <- function(input, output, session) {
       visible = vis_traces[3],
       inherit = FALSE,
       showlegend = FALSE  
-      
-      # layout  
-    ) %>% layout(
+    ) 
+    
+
+    if(tab_geo == 'hd')
+    {
+      p <- p %>% add_trace(
+        data = mixed_data,
+        type = 'scatter',
+        x = ~year,
+        y = as.formula(paste0("~", var_name)),
+        text = as.formula(paste0("~", label_name)),
+        hoverinfo = 'text',
+        mode = 'lines+markers',
+        marker = list(color = 'lightblue'),
+        line = list(color = 'lightblue'),
+        transforms = list(
+          list(
+            type = 'groupby',
+            groups = as.formula(paste0("~", label_name))
+          )
+        ),
+        visible = vis_traces[4],
+        inherit = FALSE,
+        showlegend = FALSE
+      )
+    }
+    
+    #layout
+    p %>% layout(
       #title = "Measure 1 Over Time",
       #legend = list(title = list(text = "<b>Index of Relative\nRurality</b>")),
       xaxis = list(
@@ -719,12 +806,12 @@ server <- function(input, output, session) {
       )
       #autosize = F, height = 500
       
-    ) %>% onRender("function(p){
-            var e = p.getElementsByClassName('boxlayer')
-            if(e && e[0].parentElement){
-              e[0].parentElement.appendChild(e[0].parentElement.children[0])
-            }
-          }")
+    ) #%>% onRender("function(p){
+          #   var e = p.getElementsByClassName('boxlayer')
+          #   if(e && e[0].parentElement){
+          #     e[0].parentElement.appendChild(e[0].parentElement.children[0])
+          #   }
+          # }")
     
   }
   
@@ -821,8 +908,12 @@ server <- function(input, output, session) {
         plotlyProxy(p_name, session) %>%
           plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
       }
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "hd_boxplots", selected = "Off")
+      updateSelectInput(session, "boxplots", selected = "Off")
     }
-    else
+    else  # boxplots On
     {
       for(i in 1:8) # 8=number of plots on tract page
       {
@@ -831,6 +922,10 @@ server <- function(input, output, session) {
         plotlyProxy(p_name, session) %>%
           plotlyProxyInvoke("restyle", list(visible = TRUE), 2)
       }
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "hd_boxplots", selected = "On")
+      updateSelectInput(session, "boxplots", selected = "On")
     }
     
   }) 
@@ -849,7 +944,7 @@ server <- function(input, output, session) {
           plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
       }
     }
-    else if(input$ct_rurality == "Both") # both
+    else if(input$ct_rurality == "All") # All
     {
       for(i in 1:8) # 8=number of plots on tract page
       {
@@ -957,11 +1052,19 @@ server <- function(input, output, session) {
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "hd_boxplots", selected = "Off")
+      updateSelectInput(session, "ct_boxplots", selected = "Off")
     }
     else
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 2)
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "hd_boxplots", selected = "On")
+      updateSelectInput(session, "ct_boxplots", selected = "On")
     }
     
   }) 
@@ -975,7 +1078,7 @@ server <- function(input, output, session) {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))      
     }
-    else if(input$rurality == "Both") # both
+    else if(input$rurality == "All") # All
     {
       plotlyProxy("cty_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
@@ -1002,7 +1105,7 @@ server <- function(input, output, session) {
   #
   
   output$hd_m1_plot <- renderPlotly({
-    measure_plot(urban_hd_data, rural_hd_data, vhd_data, "no_health_ins", "health_district", "hd")
+    measure_plot(urban_hd_data, rural_hd_data, vhd_data, "no_health_ins", "health_district", "hd", mixed_hd_data)
   })
   
 
@@ -1015,7 +1118,7 @@ server <- function(input, output, session) {
         filter(fid == input$vhd_health_access_comp_map_shape_click$id)
 
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("deleteTraces", 3) %>% # delete the fourth trace (prev chosen tract-if it exists)
+        plotlyProxyInvoke("deleteTraces", 4) %>% # delete the fifth trace (prev chosen tract-if it exists)
         
         # add chosen tract in blue
         plotlyProxyInvoke(
@@ -1044,11 +1147,20 @@ server <- function(input, output, session) {
     {
       plotlyProxy("hd_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = FALSE), 2)
+      
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "ct_boxplots", selected = "Off")
+      updateSelectInput(session, "boxplots", selected = "Off")
     }
     else
     {
       plotlyProxy("hd_m1_plot", session) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 2)
+      
+      # change boxplot switches on other tabs to Off
+      updateSelectInput(session, "ct_boxplots", selected = "On")
+      updateSelectInput(session, "boxplots", selected = "On")
     }
 
   })
@@ -1060,27 +1172,34 @@ server <- function(input, output, session) {
     if(input$hd_rurality == "Off") # none
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1))
+        plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1,3))
       
       # add other plotlyProxys here for other plots - we will have an observe event for each tab,
       # or could do plot controls as global vars so do not have to switch per tab. could use a for loop
     }
-    else if(input$hd_rurality == "Both") # both
+    else if(input$hd_rurality == "All") # all
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1))
+        plotlyProxyInvoke("restyle", list(visible = TRUE), c(0,1,3))
     }
     else if(input$hd_rurality == "Rural") # rural only
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 0) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,3)) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 1)
     }
-    else # urban only
+    else if(input$hd_rurality == "Urban") # urban only
     {
       plotlyProxy("hd_m1_plot", session) %>%
-        plotlyProxyInvoke("restyle", list(visible = FALSE), 1) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), c(1,3)) %>%
         plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
+    }
+    else # mixed only
+    {
+      plotlyProxy("hd_m1_plot", session) %>%
+        plotlyProxyInvoke("restyle", list(visible = FALSE), c(0,1)) %>%
+        plotlyProxyInvoke("restyle", list(visible = TRUE), 3)
+      
     }
 
   })
