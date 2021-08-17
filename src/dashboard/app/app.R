@@ -22,6 +22,7 @@ library(openxlsx)
 library(sf)
 library(data.table)
 library(htmlwidgets)
+library(shinyjs)
 
 #
 # DATA INGESTION -------------------------------------------------------
@@ -45,7 +46,20 @@ urban_hd_data <- vhd_data %>%
 # color palettes -------------------
 
 oranges <- brewer.pal(n=6, name = 'Oranges')
+pal <- colorQuantile(palette ="Oranges", domain = c(0, 1), 
+  probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
 
+# base map
+
+map <- leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addLegend(
+    position = "bottomleft",
+    pal = pal,
+    values = c(0, 1),
+    title = "Health Access Score",
+    opacity = 0.7,
+    na.label = "Not Available")
 
 #
 # UI FUNCTIONS -------------------------------------
@@ -224,6 +238,21 @@ ui <- dashboardPage(
   # dashboard body ----------------------------------------------------
   
   body = dashboardBody(
+    
+    useShinyjs(),
+    
+    tags$head(
+      tags$style(type = "text/css", ".selectize-dropdown, .selectize-dropdown.form-control{z-index: 1001}"),
+      tags$script(HTML("
+        function bring_boxes_front(){
+          for(var e = document.getElementsByClassName('boxlayer'), i = e.length; i--;){
+            if(e[i] && e[i].parentElement && e[i].parentElement.children[0].classList[0] === 'boxlayer'){
+              e[i].parentElement.appendChild(e[i].parentElement.children[0])
+            }
+          }
+        }
+      "))
+    ),
     
     tabItems(
       
@@ -471,27 +500,14 @@ server <- function(input, output, session) {
       htmltools::HTML
     )
     
-    overall_health_access <- tract_data[tract_data$year == 2019, "health_access", drop = TRUE]
-    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
-                         probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
-
-    
-    leaflet(data = map_data) %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
-      addPolygons(
-        fillColor = ~pal(health_access), 
-        fillOpacity = 0.7, 
-        stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
-        popup = ~labels,
-        layerId = ~census_tract_fips
-      ) %>%
-      addLegend(
-        position = "bottomleft",
-        pal = pal,
-        values =  ~overall_health_access,
-        title = "Health Access Score",
-        opacity = 0.7,
-        na.label = "Not Available")
+    map %>% addPolygons(
+      data = map_data,
+      fillColor = ~pal(health_access), 
+      fillOpacity = 0.7, 
+      stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
+      popup = ~labels,
+      layerId = ~census_tract_fips
+    )
     
   })
   
@@ -513,27 +529,14 @@ server <- function(input, output, session) {
       htmltools::HTML
     )
 
-    overall_health_access <- county_data[county_data$year == 2019, "health_access", drop = TRUE]
-    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
-                         probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
-    
-    
-    leaflet(data = map_data) %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
-      addPolygons(
-        fillColor = ~pal(health_access), 
-        fillOpacity = 0.7, 
-        stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
-        popup = ~labels,
-        layerId = ~county_id
-      ) %>%
-      addLegend(
-        position = "bottomleft",
-        pal = pal,
-        values =  ~overall_health_access,
-        title = "Health Access Score",
-        opacity = 0.7,
-        na.label = "Not Available")
+    map %>% addPolygons(
+      data = map_data,
+      fillColor = ~pal(health_access), 
+      fillOpacity = 0.7, 
+      stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
+      popup = ~labels,
+      layerId = ~county_id
+    )
     
   })
   
@@ -554,28 +557,15 @@ server <- function(input, output, session) {
       ),
       htmltools::HTML
     )
-    
-    overall_health_access <- vhd_data[vhd_data$year == 2019, "health_access", drop = TRUE]  
-    pal <- colorQuantile(palette ="Oranges", domain = overall_health_access, 
-                         probs = seq(0, 1, length = 6), na.color = oranges[6], right = FALSE)
-    
-    
-    leaflet(data = map_data) %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
-      addPolygons(
-        fillColor = ~pal(health_access), 
-        fillOpacity = 0.7, 
-        stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
-        popup = ~labels,
-        layerId = ~fid
-      ) %>%
-      addLegend(
-        position = "bottomleft",
-        pal = pal,
-        values =  ~overall_health_access,
-        title = "Health Access Score",
-        opacity = 0.7,
-        na.label = "Not Available")
+
+    map %>% addPolygons(
+      data = map_data,
+      fillColor = ~pal(health_access), 
+      fillOpacity = 0.7, 
+      stroke = TRUE, smoothFactor = 0.7, weight = 0.5, color = "#202020",
+      popup = ~labels,
+      layerId = ~fid
+    )
     
   })
   
@@ -806,12 +796,7 @@ server <- function(input, output, session) {
       )
       #autosize = F, height = 500
       
-    ) #%>% onRender("function(p){
-          #   var e = p.getElementsByClassName('boxlayer')
-          #   if(e && e[0].parentElement){
-          #     e[0].parentElement.appendChild(e[0].parentElement.children[0])
-          #   }
-          # }")
+    ) %>% onRender("bring_boxes_front")
     
   }
   
@@ -889,6 +874,7 @@ server <- function(input, output, session) {
               #showlegend = FALSE
             )
           )
+        runjs("bring_boxes_front()")
       }
     } 
   })
@@ -927,7 +913,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "hd_boxplots", selected = "On")
       updateSelectInput(session, "boxplots", selected = "On")
     }
-    
+    runjs("bring_boxes_front()")
   }) 
   
   
@@ -976,7 +962,7 @@ server <- function(input, output, session) {
           plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
       }
     }
-    
+    runjs("bring_boxes_front()")
   }) 
   
   
@@ -1041,6 +1027,7 @@ server <- function(input, output, session) {
             #showlegend = FALSE
           )
         )
+      runjs("bring_boxes_front()")
     } 
     
   })
@@ -1066,7 +1053,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "hd_boxplots", selected = "On")
       updateSelectInput(session, "ct_boxplots", selected = "On")
     }
-    
+    runjs("bring_boxes_front()")
   }) 
   
 
@@ -1096,7 +1083,7 @@ server <- function(input, output, session) {
         plotlyProxyInvoke("restyle", list(visible = TRUE), 0)
       
     }
-    
+    runjs("bring_boxes_front()")
   }) 
 
   
@@ -1136,6 +1123,7 @@ server <- function(input, output, session) {
             #showlegend = FALSE
           )
         )
+      runjs("bring_boxes_front()")
     }
 
   })
@@ -1162,7 +1150,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "ct_boxplots", selected = "On")
       updateSelectInput(session, "boxplots", selected = "On")
     }
-
+    runjs("bring_boxes_front()")
   })
 
 
@@ -1201,7 +1189,7 @@ server <- function(input, output, session) {
         plotlyProxyInvoke("restyle", list(visible = TRUE), 3)
       
     }
-
+    runjs("bring_boxes_front()")
   })
 
 }
