@@ -38,7 +38,7 @@ locations <- lapply(features, function(l) {
   ids <- sort(unique(l$id))
   r <- lapply(ids, function(id) {
     l[which(l$id == id)[1], colnames(l) %in% c(
-      "name", "id", "region_type", "health_district", "healthDistrict", "county_type", "tract_name"
+      "name", "id", "region_type", "county_type", "health_district", "healthDistrict", "county_name", "tract_name"
     ), drop = TRUE]
   })
   names(r) <- ids
@@ -48,6 +48,18 @@ locations <- lapply(features, function(l) {
 
 # variables to build UI with
 year_range <- range(features$`Health District`$year)
+
+input_select <- function(label, options, id = paste0("select_", gsub("\\s", "", label)), ...){
+  tags$div(
+    tags$label(label, `for` = id),
+    tags$select(
+      id = id,
+      class = "custom-select",
+      ...,
+      lapply(options, function(v) tags$option(value = v, v))
+    )
+  )
+}
 ```
 
 ```{r send_assets}
@@ -56,14 +68,19 @@ tags$script(paste0(
   "const features = ", toJSON(lapply(features, function(s) {
     split(s[, !colnames(s) %in% c(
       "name", "health_district", "county_name", "tract_name",
-      "id", "fid", "county_id", "census_tract_fips",
-      "hd_rural", "region_type"
+      "id", "fid", "county_id", "census_tract_fips", "hd_rural",
+      "region_type", "HealthDistrict", "srhp_rural", "state_name"
     )], s$id)
   }), dataframe = "columns", auto_unbox = TRUE),
   ", measures = ", paste(readLines("assets/measures.json"), collapse = ""),
   ", locations = ", toJSON(locations, auto_unbox = TRUE),
   ", meta = ", toJSON(list(year_range = year_range), auto_unbox = TRUE)
 ))
+
+# include script (handles interactions and updates)
+tags$script(src = "script.js")
+
+# custom styling
 tags$style(
   type = "text/css",
   paste0(c(
@@ -83,7 +100,7 @@ Inputs {.sidebar}
 div(
   id = "menu",
   tags$h2("Location"),
-  tags$label("Region Type", "for" = "select_scale"),
+  tags$label("Region Type", `for` = "select_scale"),
   div(
     id = "select_scale",
     class = "btn-group btn-group-toggle",
@@ -99,7 +116,7 @@ div(
   lapply(names(scales)[-3], function(s) {
     tags$div(
       class = "hidden",
-      tags$label(s, "for" = paste0("select_", scales[[s]])),
+      tags$label(s, `for` = paste0("select_", scales[[s]])),
       div(
         class = "input-group mb-3",
         tags$select(
@@ -121,17 +138,13 @@ div(
       )
     )
   }),
+  input_select("Resolution", names(scales), id = "select_shapes", onchange = "interactions.change_shapes(this)"),
+  
+  tags$h2("Time"),
+  input_select("Focal Year", seq(year_range[1], year_range[2]), id = "select_year", onchange = "interactions.change_year(this)"),
+  
   tags$h2("Data"),
-  tags$div(
-    tags$label("Variable", "for" = "select_variable"),
-    tags$select(
-      id = "select_variable",
-      class = "custom-select",
-      role = "group",
-      onchange = "interactions.change_variable(this)",
-      lapply(names(measures), function(v) tags$option(value = v, v))
-    )
-  )
+  input_select("Variable", names(measures), id = "select_variable", onchange = "interactions.change_variable(this)")
 )
 ```
 
@@ -158,28 +171,8 @@ pal <- function(v) {
 attr(pal, "colorType") <- "quantile"
 attr(pal, "colorArgs") <- list(probs = seq(0, 1, length = 9), na.color = "#808080")
 
-map <- leaflet(options = leafletOptions(attributionControl = FALSE, preferCanvas = TRUE)) |>
+map <- leaflet(options = leafletOptions(attributionControl = FALSE)) |>
   addProviderTiles("CartoDB.Positron") |>
-  addLayersControl(baseGroups = names(scales), position = "topright") |>
-  addControl(div(
-    class = "leaflet-bar",
-    style = "background: #fff",
-    id = "select_year",
-    tags$label("for" = "select_year", "Year on Map"),
-    lapply(seq(year_range[1], year_range[2]), function(y) {
-      div(
-        class = "form-check",
-        tags$label(class = "form-check-label", "for" = paste0("select_year_", y), y),
-        tags$input(
-          id = paste0("select_year_", y),
-          name = "year_option",
-          class = "leaflet-control-layers-selector",
-          type = "radio",
-          value = y
-        )
-      )
-    })
-  ), "bottomright", className = "form-group") |>
   setView(-79.7, 38, zoom = 7) |>
   addLegend(
     "bottomleft", pal, c(0, 1),
@@ -251,258 +244,4 @@ e_charts(grouped_data, year) |>
     transitionDuration = 0,
     confine = TRUE
   )
-```
-
-```{js script}
-"use strict"
-var client_options = {
-    scale: "Health District",
-    shapes: "Health District",
-    variable: "Health Access",
-    district: "All",
-    county: "All",
-    year_index: 4
-  },
-  current_options = {},
-  locationsByName = {},
-  default_bounds = {},
-  plots = [],
-  page = {}
-
-function pal(data, group){
-  const colors = ['#ffffe5', '#fff7bc', '#fee391', '#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#993404', '#662506'],
-    value = data[measures[client_options.variable].name][client_options.year_index],
-    range = measures[client_options.variable].ranges[group]
-  return colors[
-    Math.max(0,
-      Math.min(
-        colors.length - 1,
-        Math.ceil((colors.length - 1) * (value + range[0]) / (range[0] + range[1]))
-      )
-    )
-  ]
-}
-
-function polygon_color(name, layer){
-  layer.setStyle({
-    fillColor: pal(features[layer.options.group][layer.options.layerId], layer.options.group)
-  })
-}
-
-const varnames = Object.keys(measures), update_map = {
-  scale: "select_scale",
-  county: "select_region",
-  district: "select_region"
-}, updaters = {
-  polygon_colors: function(){
-    $.each(page.map.layerManager._byLayerId, polygon_color)
-  },
-  map_legend: function(){
-    page.map.controls._controlsById.legend._container.firstElementChild.innerHTML =
-      "<strong>" + client_options.variable + " Score</strong>"
-  },
-  plot_main: function(){
-    const c = client_options, data = features[c.shapes]
-    var id, i, ck, opts = plots[0].getOption(), top = [], bottom = [], all
-    function top_to_series(e, base, adj){
-      for(var i = e.length, ny = meta.year_range[1] - meta.year_range[0] + 1, y, d; i--;){
-        d = base.series[i + adj]
-        d.name = locations[c.shapes][e[i].id].name
-        base.color[i + adj] = pal(features[c.shapes][e[i].id], c.scale)
-        for(y = 0; y < ny; y++){
-          d.data[y].value[1] = e[i].data[y]
-        }
-      }
-    }
-    for(id in data) if(Object.prototype.hasOwnProperty.call(data, id)){
-      if(!top.length){
-        top.push({id: id, data: data[id][measures[c.variable].name]})
-      }else{
-        for(i = top.length; i--;){
-          if(data[id][measures[c.variable].name][c.year_index] >
-            top[i].data[c.year_index]){
-            top.splice(i + 1, 0, {id: id, data: data[id][measures[c.variable].name]})
-            break
-          }
-        }
-      }
-      if(!bottom.length){
-        bottom.push({id: id, data: data[id][measures[c.variable].name]})
-      }else{
-        for(i = bottom.length; i--;){
-          if(data[id][measures[c.variable].name][c.year_index] <
-            bottom[i].data[c.year_index]){
-            bottom.splice(i + 1, 0, {id: id, data: data[id][measures[c.variable].name]})
-            break
-          }
-        }
-      }
-    }
-    top_to_series(top.splice(top.length - 5, 5), opts, 5)
-    top_to_series(bottom.splice(bottom.length - 5, 5), opts, 0)
-    plots[0].setOption(opts, true)
-  },
-  select_scale: function(){
-    $.each(page.menu.scale.children, function(i, e){
-      if(e.innerText === client_options.scale){
-        e.classList.add('active')
-        e.children[0].checked = true
-        page.menu.district.parentElement.parentElement.classList[
-          "Health District" === client_options.scale ? "remove" : "add"
-        ]("hidden")
-        page.menu.county.parentElement.parentElement.classList[
-          "County" === client_options.scale ? "remove" : "add"
-        ]("hidden")
-      }else{
-        e.classList.remove('active')
-      }
-    })
-  },
-  select_region: function(){
-    var internal_type = client_options.scale === "County" ? "county" : "district",
-      shape
-    page.menu[internal_type].selectedIndex =
-      locations[client_options.scale].levels.indexOf(client_options[internal_type])
-    if(client_options.last_layer){
-      shape = page.map.layerManager._byLayerId["shape\n" + client_options.last_layer]
-      shape.setStyle({
-        weight: 1
-      })
-    }
-    if(client_options.next_layer){
-      shape = page.map.layerManager._byLayerId["shape\n" + client_options.next_layer]
-      shape.setStyle({
-        weight: 5
-      })
-      page.map.flyToBounds(shape.getBounds())
-    }else{
-      page.map.flyToBounds(default_bounds)
-    }
-    client_options.last_layer = client_options.next_layer
-    client_options.next_layer = ""
-  },
-  menu: function(){
-    $.each(update_map, function(setting, fun){
-      if(client_options[setting] !== current_options[setting]) updaters[fun]()
-    })
-    current_options = JSON.parse(JSON.stringify(client_options))
-  }
-}, interactions = {
-  change_year: function(e){
-    if(e.target.tagName !== "DIV"){
-      if(e.target.tagName === "LABEL") e.target = e.target.nextElementSibling
-      client_options.year_index = parseInt(e.target.value) - meta.year_range[0]
-      updaters.polygon_colors()
-      updaters.plot_main()
-    }
-  },
-  change_variable: function(e){
-    client_options.variable = varnames[e.selectedIndex]
-    updaters.map_legend()
-    updaters.polygon_colors()
-    updaters.plot_main()
-  },
-  change_region: function(type){
-    client_options.scale = type
-    client_options.next_layer =
-      locationsByName[type][client_options[type === "County" ? "county" : "district"]].id
-    current_options.district = current_options.county = ""
-    updaters.menu()
-  },
-  change_selection: function(e, type){
-    var internal_type = type === "Health District" ? "district" : "county"
-    client_options[internal_type] = locations[type].levels[e.selectedIndex]
-    client_options.next_layer = locationsByName[type][client_options[internal_type]].id
-    updaters.menu()
-  },
-  reset_district: function(){
-    if(client_options.district !== "All"){
-      client_options.district = "All"
-      updaters.menu()
-    }
-  },
-  reset_county: function(){
-    if(client_options.county !== "All"){
-      client_options.county = "All"
-      updaters.menu()
-    }
-  }
-}
-
-window.onload = function(){
-  // make inverted locations object
-  var g, k, year_inputs = $("#select_year div")
-  for(g in locations) if(Object.prototype.hasOwnProperty.call(locations, g)){
-    locationsByName[g] = {All: {id: ""}}
-    for(k in locations[g]) if(Object.prototype.hasOwnProperty.call(locations[g], k)){
-      locationsByName[g][locations[g][k].name] = locations[g][k]
-    }
-  }
-
-  // identify page components
-  page.map = $('.leaflet')[0].htmlwidget_data_init_result.getMap()
-  default_bounds = page.map.getBounds()
-  page.menu = {
-    scale: $('#select_scale')[0],
-    district: $('#select_district')[0],
-    county: $('#select_county')[0]
-  }
-  
-  // fill in default year
-  year_inputs[client_options.year_index].lastElementChild.checked = true
-  
-  // update menu with initial options after initial layout
-  setTimeout(updaters.menu, 0)
-
-  // apply initial map colors
-  updaters.polygon_colors()
-
-  // retrieve plot instances from dom
-  $('.echarts4r').each(function(i, p){
-    plots.push(echarts.getInstanceByDom(p))
-  })
-  
-  // add listener to layer controls
-  $(page.map.currentLayersControl._form).on("click", function(e){
-    if(e.target.tagName === "SPAN"){
-      client_options.shapes = e.target.innerText.trim()
-      updaters.plot_main()
-    }
-  })
-  year_inputs.on("click", interactions.change_year)
-  
-  // add interaction functions to region shapes
-  function add_layer_listeners(name, layer){
-    layer.on({
-      mouseover: function(e){
-        if(Object.prototype.hasOwnProperty.call(e.target.options, "layerId")){
-          e.target.setStyle({
-            fillOpacity: 1
-          })
-        }
-      },
-      mouseout: function(e){
-        if(Object.prototype.hasOwnProperty.call(e.target.options, "layerId")){
-          e.target.setStyle({
-            fillOpacity: 0.7
-          })
-        }
-      },
-      click: function(e){
-        if(
-          Object.prototype.hasOwnProperty.call(e.target.options, "layerId"),
-          e.target.options.group !== "Census Tract"
-        ){
-          client_options.next_layer = e.target.options.layerId
-          client_options[e.target.options.group === "County" ? "county" : "district"] =
-            locations[client_options.shapes][client_options.next_layer].name
-          client_options.scale = e.target.options.group
-          updaters.menu()
-        }
-      }
-    })
-  }
-  $.each(page.map.layerManager._byLayerId, add_layer_listeners)
-}
-
 ```
