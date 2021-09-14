@@ -1,313 +1,394 @@
-"use strict"
-var client_options = {
-    scale: "Health District",
-    shapes: "Health District",
-    variable: "Health Access",
-    district: "All",
-    county: "All",
-    year_index: 4
-  },
-  current_options = {},
+'use strict'
+var current_options = {},
   locationsByName = {},
+  measureByDisplay = {},
   default_bounds = {},
+  trace_template = '',
   plots = [],
-  page = {}
+  map,
+  _u = {},
+  _s = {},
+  _c = {}
 
-function pal(value, group){
-  const colors = ['#ffffe5', '#fff7bc', '#fee391', '#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#993404', '#662506'],
-    range = measures[client_options.variable].ranges[group]
-  return colors[
-    Math.max(0,
-      Math.min(
-        colors.length - 1,
-        Math.ceil((colors.length - 1) * (value + range[0]) / (range[0] + range[1]))
-      )
-    )
-  ]
+function pal(value) {
+  const colors = [
+      '#FFD67E',
+      '#F0C471',
+      '#E1B265',
+      '#D3A158',
+      '#C48F4C',
+      '#B57D3F',
+      '#A76C33',
+      '#985A26',
+      '#89481A',
+      '#7B370E',
+    ],
+    range = measures[_s.select_variable].summaries[_s.select_shapes]
+  return typeof value === 'number'
+    ? colors[
+        Math.max(
+          0,
+          Math.min(
+            colors.length - 1,
+            Math.ceil(
+              ((colors.length - 1) * (value + range.min[_u.select_year.current_index])) /
+                (range.min[_u.select_year.current_index] + range.max[_u.select_year.current_index])
+            )
+          )
+        )
+      ]
+    : '#808080'
 }
 
-function make_data_entry(group, id, variable, name, color){
-  const d = features[group][id], c = client_options
-  for(var i = d[variable].length, e = {
-    name: name || "hover_line",
-    type: "line",
-    data: [],
-    itemStyle: {color: color},
-    lineStyle: {color: color}
-  }; i--;){
-    e.data[i] = {value: [d.year[i] + "", d[variable][i]]}
+function make_data_entry(group, id, variable, name, color) {
+  const d = features[group][id]
+  for (var i = d[variable].length, e = JSON.parse(trace_template); i--; ) {
+    e.text[i] = name
+    e.x[i] = d.year[i]
+    e.y[i] = d[variable][i]
   }
-  if(!color) e.itemStyle.color = e.lineStyle.color = pal(d[variable][c.year_index], group)
+  e.color =
+    e.line.color =
+    e.marker.color =
+    e.marker.line.color =
+    e.textfont.color =
+      color || pal(d[variable][_u.select_year.current_index])
+  e.name = name
   return e
 }
 
-const varnames = Object.keys(measures), update_map = {
-  scale: "select_scale",
-  county: "select_region",
-  district: "select_region",
-  year: "select_year"
-}, updaters = {
-  polygons: function(){
-    $.each(page.map.layerManager._byLayerId, function(name, layer){
-      if(layer.options.group === client_options.shapes){
-        const d = features[layer.options.group][layer.options.layerId],
-          l = locations[layer.options.group][layer.options.layerId],
-          s = client_options.scale === "County" ? "county" : "district"
-        if(client_options[s] === "All" ||
-          client_options[s] === l[s === "county" ? "county_name" : "health_district"]){
-          layer.setStyle({
-            fillColor: pal(
-              d[measures[client_options.variable].name][client_options.year_index],
-              layer.options.group
-            ),
-            weight: 1,
-            fillOpacity: 0.7
-          })
-          layer.addTo(page.map)
-          return void 0
+const varnames = Object.keys(measures),
+  update_map = {
+    scale: 'select_scale',
+    county: 'select_region',
+    district: 'select_region',
+    year: 'select_year',
+  },
+  updaters = {
+    polygons: function () {
+      const all = _s[_s.select_scale] === 'All'
+      var k, layer
+      if (_s.select_scale === 'county' && _s.select_shapes === 'district') {
+        _u.select_shapes.set('county')
+      }
+      if (all) {
+        map.flyToBounds(default_bounds)
+      } else {
+        map.flyToBounds(
+          map.layerManager._byLayerId['shape\n' + locationsByName[_s.select_scale][_s[_s.select_scale]].id].getBounds()
+        )
+      }
+      for (k in map.layerManager._byLayerId)
+        if (Object.prototype.hasOwnProperty.call(map.layerManager._byLayerId, k)) {
+          layer = map.layerManager._byLayerId[k]
+          if (layer.options.group === _s.select_shapes) {
+            if (
+              all ||
+              _s[_s.select_scale] ===
+                locations[layer.options.group][layer.options.layerId][
+                  _s.select_scale === 'county' ? 'county_name' : 'health_district'
+                ]
+            ) {
+              layer.setStyle({
+                fillColor: pal(
+                  features[layer.options.group][layer.options.layerId][_s.select_variable][_u.select_year.current_index]
+                ),
+                weight: 1,
+                fillOpacity: 0.7,
+              })
+              layer.addTo(map)
+              continue
+            }
+          }
+          layer.remove()
+        }
+    },
+    map_legend: function () {
+      map.controls._controlsById.legend._container.firstElementChild.innerHTML =
+        '<strong>' + measures[_s.select_variable].name + ' Score</strong>'
+    },
+    plot_main: function () {
+      const data = features[_s.select_shapes],
+        s = measures[_s.select_variable].summaries[_s.select_shapes],
+        sel = _s.select_scale === 'county' ? 'county_name' : 'health_district'
+      var id,
+        i,
+        traces = [],
+        sorted = []
+      function top_to_series(i, n) {
+        for (; i < n; i++) {
+          traces.splice(
+            0,
+            0,
+            make_data_entry(
+              _s.select_shapes,
+              sorted[i].id,
+              _s.select_variable,
+              locations[_s.select_shapes][sorted[i].id].name
+            )
+          )
         }
       }
-      layer.remove()
-    })
-  },
-  map_legend: function(){
-    page.map.controls._controlsById.legend._container.firstElementChild.innerHTML =
-      "<strong>" + client_options.variable + " Score</strong>"
-  },
-  plot_main: function(){
-    const c = client_options, data = features[c.shapes], variable = measures[c.variable].name,
-      type = c.scale === "County" ? "county" : "district"
-    var id, i, l, opts = plots[0].getOption(), top = [], bottom = [], all
-    opts.series = []
-    function top_to_series(e, base, adj){
-      for(var i = e.length, ny = meta.year_range[1] - meta.year_range[0] + 1; i--;){
-        base.series.splice(-1, 0, make_data_entry(
-          c.shapes, e[i].id, variable, locations[c.shapes][e[i].id].name
-        ))
-      }
-    }
-    for(id in data) if(Object.prototype.hasOwnProperty.call(data, id)){
-      if(c[type] === "All" ||
-        locations[c.shapes][id][type === "county" ? "county_name" : "health_district"] === c[type]){
-        if(!top.length){
-          top.push({id: id, data: data[id][variable]})
-        }else{
-          for(i = top.length; i--;){
-            if(data[id][variable][c.year_index] > top[i].data[c.year_index]){
-              top.splice(i + 1, 0, {id: id, data: data[id][variable]})
-              break
+      for (id in data)
+        if (Object.prototype.hasOwnProperty.call(data, id)) {
+          if (
+            typeof data[id][_s.select_variable][_u.select_year.current_index] === 'number' &&
+            (_s[_s.select_scale] === 'All' || locations[_s.select_shapes][id][sel] === _s[_s.select_scale])
+          ) {
+            i = sorted.length
+            if (
+              !i ||
+              data[id][_s.select_variable][_u.select_year.current_index] >
+                sorted[i - 1].data[_u.select_year.current_index]
+            ) {
+              sorted.push({id: id, data: data[id][_s.select_variable]})
+            } else {
+              for (; i--; ) {
+                if (
+                  data[id][_s.select_variable][_u.select_year.current_index] >
+                  sorted[i].data[_u.select_year.current_index]
+                ) {
+                  sorted.splice(i + 1, 0, {id: id, data: data[id][_s.select_variable]})
+                  break
+                }
+              }
+              if (i === -1) {
+                sorted.splice(0, 0, {id: id, data: data[id][_s.select_variable]})
+              }
             }
           }
         }
-        if(!bottom.length){
-          bottom.push({id: id, data: data[id][variable]})
-        }else{
-          for(i = bottom.length; i--;){
-            if(data[id][variable][c.year_index] < bottom[i].data[c.year_index]){
-              bottom.splice(i + 1, 0, {id: id, data: data[id][variable]})
-              break
-            }
+      top_to_series(0, Math.min(5, sorted.length))
+      if (sorted.length > 5) top_to_series(Math.max(5, sorted.length - 5), sorted.length)
+      for (i = plots[0].data.length; i--; ) {
+        if (plots[0].data[i].type === 'box') {
+          plots[0].data[i].x = data[id].year
+          delete plots[0].data[i].y
+          plots[0].data[i].upperfence = s.max
+          plots[0].data[i].q3 = s.q3
+          plots[0].data[i].median = s.median
+          plots[0].data[i].q1 = s.q1
+          plots[0].data[i].lowerfence = s.min
+          traces.push(plots[0].data[i])
+        }
+      }
+      Plotly.react(plots[0], traces, plots[0].layout)
+    },
+  },
+  getters = {
+    buttongroup: function () {
+      $.each(
+        this.options,
+        function (i, e) {
+          if (e.checked) {
+            this.update(e.value, i, true)
+            return false
+          }
+        }.bind(this)
+      )
+      return this.current
+    },
+    radio: function () {
+      $.each(
+        this.options,
+        function (i, e) {
+          if (e.checked) {
+            this.update(e.value, i, true)
+            return false
+          }
+        }.bind(this)
+      )
+      return this.current
+    },
+    select: function () {
+      this.update(this.e.value, this.e.selectedIndex, true)
+      return this.current
+    },
+  },
+  setters = {
+    buttongroup: function (v) {
+      if (this.current !== v && this.values.indexOf(v) !== -1) {
+        $.each(this.options, function (i, e) {
+          if (e.value === v) {
+            e.checked = true
+            e.parentElement.classList.add('active')
+            this.update(v, i)
+          } else {
+            e.parentElement.classList.remove('active')
+          }
+        })
+      }
+    },
+    radio: function (v) {
+      if (this.current !== v && this.values.indexOf(v) !== -1) {
+        $.each(this.options, function (i, e) {
+          if (e.value === v) {
+            e.checked = true
+            this.update(v, i)
+          }
+        })
+      }
+    },
+    select: function (v) {
+      if (this.current !== v) {
+        const i = this.values.indexOf(v)
+        if (i !== -1) {
+          this.e.selectedIndex = i
+          this.update(v, i)
+        }
+      }
+    },
+    update_select: function (v, i, passive) {
+      this.previous = this.current
+      this.current = _s[this.id] = v
+      this.current_index = i
+      if (Object.prototype.hasOwnProperty.call(_c, this.id)) {
+        for (var i = _c[this.id].length; i--; ) {
+          if (Object.prototype.hasOwnProperty.call(_u, _c[this.id][i])) {
+            _u[_c[this.id][i]].e.parentElement.parentElement.classList[
+              this.current === _c[this.id][i] ? 'remove' : 'add'
+            ]('hidden')
           }
         }
       }
-    }
-    top_to_series(top.splice(top.length - 5, 5), opts, 5)
-    top_to_series(bottom.splice(bottom.length - 5, 5), opts, 0)
-    plots[0].setOption(opts, {replaceMerge: "series"})
+      if (!passive) update()
+    },
   },
-  select_scale: function(){
-    $.each(page.menu.scale.children, function(i, e){
-      if(e.innerText === client_options.scale){
-        e.classList.add('active')
-        e.children[0].checked = true
-        page.menu.district.parentElement.parentElement.classList[
-          "Health District" === client_options.scale ? "remove" : "add"
-        ]("hidden")
-        page.menu.county.parentElement.parentElement.classList[
-          "County" === client_options.scale ? "remove" : "add"
-        ]("hidden")
-      }else{
-        e.classList.remove('active')
-      }
-    })
-    if(client_options.scale === "County" && client_options.shapes === "Health District"){
-      client_options.shapes = "County"
-      updaters.menu()
-    }
-    updaters.polygons()
-    updaters.plot_main()
-  },
-  select_region: function(){
-    var internal_type = client_options.scale === "County" ? "county" : "district",
-      selected
-    page.menu[internal_type].selectedIndex =
-      locations[client_options.scale].levels.indexOf(client_options[internal_type])
-    if(client_options.selected_layer){
-      selected = "shape\n" + client_options.selected_layer
-      $.each(page.map.layerManager._byLayerId, function(name, layer){
-        if(name === selected){
-          if(!page.map.hasLayer(layer)) page.map.addLayer(layer)
-          if(internal_type === "county") client_options.district =
-            locations[layer.options.group][layer.options.layerId].health_district
-          page.map.flyToBounds(layer.getBounds())
-        }else{
-          page.map.removeLayer(layer)
-        }
-      })
-    }else{
-      $.each(page.map.layerManager._byLayerId, function(name, layer){
-        if(!page.map.hasLayer(layer)) page.map.addLayer(layer)
-      })
-      page.map.flyToBounds(default_bounds)
-    }
-    updaters.polygons()
-    updaters.plot_main()
-  },
-  select_year: function(){
-    page.menu.year.selectedIndex = client_options.year_index
-  },
-  menu: function(){
-    $.each(update_map, function(setting, fun){
-      if(client_options[setting] !== current_options[setting]) updaters[fun]()
-    })
-    current_options = JSON.parse(JSON.stringify(client_options))
+  listeners = {
+    buttongroup: function (e) {
+      this.update(e.target.value, this.display.indexOf(e.target.value))
+    },
+    radio: function (e) {
+      this.update(e.target.value, this.display.indexOf(e.target.value))
+    },
+    select: function (e) {
+      this.update(e.target.value, e.target.selectedIndex)
+    },
   }
-}, interactions = {
-  change_year: function(e){
-    client_options.year_index = e.selectedIndex
-    updaters.polygons()
-    updaters.plot_main()
-  },
-  change_variable: function(e){
-    client_options.variable = varnames[e.selectedIndex]
-    updaters.map_legend()
-    updaters.polygons()
-    updaters.plot_main()
-  },
-  change_shapes: function(e){
-    client_options.shapes = e.children[e.selectedIndex].innerText
-    if(client_options.shapes === "Health District" && client_options.scale === "County"){
-      client_options.scale = "Health District"
-      current_options.District = "none"
-    }
-    updaters.menu()
-    updaters.polygons()
-    updaters.plot_main()
-  },
-  change_region: function(type){
-    var internal_type = type === "Health District" ? "district" : "county"
-    client_options.selected_layer = locationsByName[type][client_options[internal_type]].id
-    current_options[internal_type] = "none"
-    client_options.scale = type
-    updaters.menu()
-  },
-  change_selection: function(e, type){
-    var internal_type = type === "Health District" ? "district" : "county"
-    client_options[internal_type] = locations[type].levels[e.selectedIndex]
-    client_options.selected_layer = locationsByName[type][client_options[internal_type]].id
-    updaters.menu()
-  },
-  reset_district: function(){
-    if(client_options.district !== "All"){
-      client_options.district = "All"
-      client_options.selected_layer = ""
-      updaters.menu()
-    }
-  },
-  reset_county: function(){
-    if(client_options.county !== "All"){
-      client_options.county = "All"
-      client_options.selected_layer = ""
-      updaters.menu()
-    }
-  }
+
+function update() {
+  updaters.polygons()
+  updaters.plot_main()
 }
 
-window.onload = function(){
-  // make inverted locations object
-  var g, k, year_inputs = $("#select_year div")
-  for(g in locations) if(Object.prototype.hasOwnProperty.call(locations, g)){
-    locationsByName[g] = {All: {id: ""}}
-    for(k in locations[g]) if(Object.prototype.hasOwnProperty.call(locations[g], k)){
-      locationsByName[g][locations[g][k].name] = locations[g][k]
+window.onload = function () {
+  // make inverted location object
+  var g, k
+  for (g in locations)
+    if (Object.prototype.hasOwnProperty.call(locations, g)) {
+      locationsByName[g] = {All: {id: ''}}
+      for (k in locations[g])
+        if (Object.prototype.hasOwnProperty.call(locations[g], k)) {
+          locationsByName[g][locations[g][k].name] = locations[g][k]
+        }
     }
-  }
+
+  // make variable and level name map
+  for (k in measures)
+    if (Object.prototype.hasOwnProperty.call(measures, k)) {
+      measureByDisplay[measures[k].name] = k
+    }
 
   // identify page components
-  page.map = $('.leaflet')[0].htmlwidget_data_init_result.getMap()
-  default_bounds = page.map.getBounds()
-  page.menu = {
-    scale: $('#select_scale')[0],
-    district: $('#select_district')[0],
-    county: $('#select_county')[0],
-    shapes: $("#select_shapes")[0],
-    year: $("#select_year")[0]
-  }
-  
-  // set initial year
-  updaters.select_year()
-  
-  // update menu with initial options after initial layout
-  setTimeout(updaters.menu, 0)
+  map = $('.leaflet')[0].htmlwidget_data_init_result.getMap()
+  default_bounds = map.getBounds()
 
-  // apply initial map colors
-  updaters.polygons()
-
-  // retrieve plot instances from dom
-  $('.echarts4r').each(function(i, p){
-    plots.push(echarts.getInstanceByDom(p))
+  // retrieve plot elements
+  $('.plotly').each(function (i, e) {
+    plots.push(e)
   })
-  
-  // add listener to layer controls
-  year_inputs.on("click", interactions.change_year)
-  
+  trace_template = JSON.stringify(plots[0].data[0])
+
   // add interaction functions to region shapes
-  function add_layer_listeners(name, layer){
+  function add_layer_listeners(name, layer) {
     layer.on({
-      mouseover: function(e){
-        if(Object.prototype.hasOwnProperty.call(e.target.options, "layerId")){
+      mouseover: function (e) {
+        if (Object.prototype.hasOwnProperty.call(e.target.options, 'layerId')) {
           e.target.setStyle({
             weight: 2,
-            fillOpacity: 1
+            fillOpacity: 1,
           })
-          var opts = plots[0].getOption()
-          opts.series.push(make_data_entry(
+          var trace = make_data_entry(
             e.target.options.group,
             e.target.options.layerId,
-            measures[client_options.variable].name,
-            "hover_line",
-            "#000"
-          ))
-          opts.series[opts.series.length - 1].lineStyle.width = 3
-          plots[0].setOption(opts, false)
+            _s.select_variable,
+            'hover_line',
+            '#000'
+          )
+          trace.line.width = 4
+          Plotly.addTraces(plots[0], trace, plots[0].data.length)
         }
       },
-      mouseout: function(e){
-        if(Object.prototype.hasOwnProperty.call(e.target.options, "layerId")){
+      mouseout: function (e) {
+        if (Object.prototype.hasOwnProperty.call(e.target.options, 'layerId')) {
           e.target.setStyle({
             weight: 1,
-            fillOpacity: 0.7
+            fillOpacity: 0.7,
           })
-          var opts = plots[0].getOption()
-          if(opts.series[opts.series.length - 1].name === "hover_line"){
-            opts.series.splice(opts.series.length - 1, 1)
-            plots[0].setOption(opts, true)
-          }
+          if (plots[0].data[plots[0].data.length - 1].name === 'hover_line')
+            Plotly.deleteTraces(plots[0], plots[0].data.length - 1)
         }
       },
-      click: function(e){
-        if(
-          Object.prototype.hasOwnProperty.call(e.target.options, "layerId"),
-          e.target.options.group !== "Census Tract"
-        ){
-          client_options.selected_layer = e.target.options.layerId
-          client_options[e.target.options.group === "County" ? "county" : "district"] =
-            locations[client_options.shapes][client_options.selected_layer].name
-          client_options.scale = e.target.options.group
-          updaters.menu()
+      click: function (e) {
+        if (Object.prototype.hasOwnProperty.call(e.target.options, 'layerId') && e.target.options.group !== 'tract') {
+          _s.selected_layer = e.target.options.layerId
+          _u[e.target.options.group].set(locations[e.target.options.group][e.target.options.layerId].name)
         }
-      }
+      },
     })
   }
-  $.each(page.map.layerManager._byLayerId, add_layer_listeners)
+  $.each(map.layerManager._byLayerId, add_layer_listeners)
+
+  // connect inputs
+  $('.auto-input').each(function (i, e) {
+    var o = {
+        type: e.getAttribute('auto-type'),
+        id: e.id,
+        current: '',
+        current_index: -1,
+        previous: '',
+        e: e,
+        values: [],
+        display: [],
+      },
+      c
+    o.options = o.type === 'select' ? e.children : e.getElementsByTagName('input')
+    o.update = setters.update_select.bind(o)
+    o.set = setters[o.type].bind(o)
+    o.get = getters[o.type].bind(o)
+    o.reset = function (e) {
+      if (this.default !== this.current) this.set(this.default)
+    }.bind(o)
+    o.listen = listeners[o.type].bind(o)
+    _u[e.id] = o
+
+    // retrieve option values
+    $(e.children).each(function (i, e) {
+      o.values[i] = o.options[i].value
+      o.display[i] = e.innerText.trim() || o.values[i]
+    })
+
+    // add listeners
+    if (o.type === 'select') {
+      $(e).on('change', o.listen)
+      if (e.nextElementSibling && e.nextElementSibling.className === 'input-group-append') {
+        $(e.nextElementSibling.firstElementChild).on('click', o.reset)
+      }
+    } else {
+      $(o.options).on('click', o.listen)
+    }
+
+    // update display condition
+    if ((c = e.getAttribute('condition'))) {
+      if (!Object.prototype.hasOwnProperty.call(_c, c)) _c[c] = []
+      _c[c].push(e.id)
+      if (Object.prototype.hasOwnProperty.call(_s, c) && _s[c] === e.id) {
+        e.parentElement.parentElement.classList.remove('hidden')
+      }
+    }
+
+    // get initial values
+    _s[e.id] = o.default = o.get()
+  })
+  setTimeout(update, 0)
 }

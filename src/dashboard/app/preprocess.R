@@ -42,7 +42,7 @@ shapes <- lapply(lapply(data, function(d) d[!duplicated(d$id), features[features
   d
 })
 
-# write geojson and csvs
+# write preformatted data files
 dir.create("assets", FALSE)
 for (n in names(shapes)) {
   # write json
@@ -54,7 +54,28 @@ for (n in names(shapes)) {
 
   # write csv
   write.csv(st_drop_geometry(data[[n]]), paste0("assets/", n, ".csv"), row.names = FALSE)
+  
+  # write json
 }
+
+year_range <- range(as.numeric(as.character(data$district$year)))
+nyears <- nlevels(data$district$year)
+write_json(lapply(data, function(s) {
+  s <- st_drop_geometry(s)
+  d <- split(s[, !colnames(s) %in% c(
+    "name", "health_district", "county_name", "tract_name",
+    "id", "fid", "county_id", "census_tract_fips", "hd_rural",
+    "region_type", "HealthDistrict", "srhp_rural", "state_name"
+  )], s$id)
+  for(i in seq_along(d)){
+    if(nrow(d[[i]]) != nyears){
+      td <- rbind(d[[i]], rep(NA, nyears - nrow(d[[i]])))
+      td[-seq_len(nrow(d[[i]])), "year"] <- year_range[!year_range %in% d[[i]]$year]
+      d[[i]] <- td[order(td$year),]
+    }
+  }
+  d
+}), paste0("assets/data.json"), dataframe = "columns", auto_unbox = TRUE)
 
 # collect and write metadata
 format_name <- function(name) {
@@ -62,10 +83,12 @@ format_name <- function(name) {
 }
 
 measures <- list(
-  "Health Access" = list(
-    name = "health_access",
+  "health_access" = list(
+    description = "Health Access Description",
+    icon = "alarm",
+    name = "Health Access",
     components = list(
-      "Health District" = c(
+      "district" = c(
         "No Health Insurance" = "no_health_ins",
         "High Blood Pressure" = "bphigh_crudeprev",
         "Cancer" = "cancer_crudeprev",
@@ -74,7 +97,7 @@ measures <- list(
         "Mental Health" = "mhlth_crudeprev",
         "Physical Health" = "phlth_crudeprev"
       ),
-      "County" = c(
+      "county" = c(
         "No Health Insurance" = "no_health_ins",
         "High Blood Pressure" = "bphigh_crudeprev",
         "Cancer" = "cancer_crudeprev",
@@ -84,7 +107,7 @@ measures <- list(
         "Mental Health" = "mhlth_crudeprev",
         "Physical Health" = "phlth_crudeprev"
       ),
-      "Census Tract" = c(
+      "tract" = c(
         "No Health Insurance" = "no_health_ins",
         "High Blood Pressure" = "bphigh_crudeprev",
         "Cancer" = "cancer_crudeprev",
@@ -97,27 +120,31 @@ measures <- list(
     )
   )
 )
+format_summary = function(v, y){
+  s <- as.data.frame(do.call(rbind, tapply(v, y, summary, na.rm = TRUE)))
+  colnames(s) = c("min", "q1", "median", "mean", "q3", "max", if(length(s) > 6) "nas")
+  as.list(s)
+}
 for (variable in colnames(vhd_data)) {
   if (
     is.numeric(vhd_data[, variable, drop = TRUE]) &&
       variable %in% colnames(county_data) &&
       variable %in% colnames(tract_data)
   ) {
-    formatted <- format_name(variable)
     v <- c(
       vhd_data[, variable, drop = TRUE],
       county_data[, variable, drop = TRUE],
       tract_data[, variable, drop = TRUE]
     )
     if (!all(v == 0)) {
-      measures[[formatted]] <- list(
-        name = variable,
-        ranges = list(
-          "Health District" = range(vhd_data[, variable, drop = TRUE], na.rm = TRUE),
-          "County" = range(vhd_data[, variable, drop = TRUE], na.rm = TRUE),
-          "Census Tract" = range(vhd_data[, variable, drop = TRUE], na.rm = TRUE)
+      measures[[variable]] <- list(
+        name = format_name(variable),
+        summaries = list(
+          "district" = format_summary(vhd_data[, variable, drop = TRUE], vhd_data$year),
+          "county" = format_summary(county_data[, variable, drop = TRUE], county_data$year),
+          "tract" = format_summary(tract_data[, variable, drop = TRUE], tract_data$year)
         ),
-        components = measures[[formatted]]$components
+        components = measures[[variable]]$components
       )
     }
   }
