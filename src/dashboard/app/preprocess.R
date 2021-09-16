@@ -54,10 +54,9 @@ for (n in names(shapes)) {
 
   # write csv
   write.csv(st_drop_geometry(data[[n]]), paste0("assets/", n, ".csv"), row.names = FALSE)
-  
-  # write json
 }
 
+# write json
 year_range <- range(as.numeric(as.character(data$district$year)))
 nyears <- nlevels(data$district$year)
 write_json(lapply(data, function(s) {
@@ -125,6 +124,7 @@ format_summary = function(v, y){
   colnames(s) = c("min", "q1", "median", "mean", "q3", "max", if(length(s) > 6) "nas")
   as.list(s)
 }
+
 for (variable in colnames(vhd_data)) {
   if (
     is.numeric(vhd_data[, variable, drop = TRUE]) &&

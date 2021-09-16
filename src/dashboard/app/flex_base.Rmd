@@ -59,8 +59,7 @@ nyears <- year_range[2] - year_range[1] + 1
 ```{r send_assets}
 # add assets to JavaScript
 tags$script(paste0(
-  "const features = ", paste(readLines("assets/data.json"), collapse = ""),
-  ", measures = ", paste(readLines("assets/measures.json"), collapse = ""),
+  "const measures = ", paste(readLines("assets/measures.json"), collapse = ""),
   ", locations = ", toJSON(locations, auto_unbox = TRUE),
   ", meta = ", toJSON(list(
     year_range = year_range,
@@ -75,12 +74,19 @@ tags$script(src = "script.js")
 tags$style(
   type = "text/css",
   paste0(c(
+    "h1, h2{margin-top: .5rem}",
     ".sidebar label{margin: .7em 0 .2em 0}",
     "label.form-check-label{margin: 0}",
-    "#select_year label, #select_year input{cursor: pointer}",
+    ".leaflet-container{background: #fff}",
+    "#year label, #year input{cursor: pointer}",
     ".form-check{padding: 0 .5em .5em .7em}",
     ".hidden{display: none}",
-    ".form-check-input{position: relative; margin-left: 0}"
+    ".form-check-input{position: relative; margin-left: 0}",
+    ".legend{width: 300px; padding: .5em 1em .5em 0}",
+    ".legend td:first-of-type{text-align: right}",
+    ".legend-scale{width: 80%; height: 30px}",
+    ".legend-scale span{height: 100%; width: 10%; display: inline-block}",
+    ".table td{padding: 0}"
   ), collapse = "\n")
 )
 ```
@@ -91,14 +97,14 @@ Inputs {.sidebar}
 div(
   id = "menu",
   h2("Location"),
-  input_buttongroup("Region Type", names(scales[-3]), display = scales[-3], id = "select_scale"),
+  input_buttongroup("Region Type", names(scales[-3]), display = scales[-3], id = "scale"),
   lapply(names(scales[-3]), function(s) {
     div(
       class = "hidden",
       input_select(
         scales[[s]],
         locations[[s]]$levels,
-        condition = "select_scale",
+        condition = "scale",
         variable = scale_variables[[s]],
         id = s,
         value = s,
@@ -106,14 +112,18 @@ div(
       )
     )
   }),
-  input_select("Resolution", names(scales), display = scales, id = "select_shapes"),
+  input_select("Resolution", names(scales), display = scales, id = "shapes"),
+  input_select(
+    "Region Types", c("All", unique(features$district$region_type)),
+    variable = "region_type", id = "region_type", multi = TRUE
+  ),
   h2("Time"),
   input_radio(
     "Focal Year", seq(year_range[1], year_range[2]),
-    variable = "year", default = year_range[2], id = "select_year"
+    variable = "year", default = year_range[2], id = "year"
   ),
   h2("Data"),
-  input_select("Variable", names(measures), display = vapply(measures, "[[", "", "name"), id = "select_variable")
+  input_select("Variable", names(measures), display = vapply(measures, "[[", "", "name"), id = "variable")
 )
 ```
 
@@ -122,33 +132,20 @@ Row
 ### Location
 ```{r map}
 # build map
-make_label <- function(scale, data) {
-  lapply(with(data, paste0(
-    paste("<strong>Health District:</strong>", health_district),
-    if (scale != "district") paste("<br /><strong>County:</strong>", county_name),
-    if (scale == "tract") paste("<br /><strong>Census Tract:</strong>", tract_name)
-  )), HTML)
-}
-
-colors <- c(
-  "#FFD67E", "#F0C471", "#E1B265", "#D3A158", "#C48F4C", "#B57D3F", "#A76C33", "#985A26", "#89481A", "#7B370E"
-)
-pal <- function(v) {
-  colors[ceiling(v / .15) + 1]
-}
+pal <- function(v) "#FFFFFF"
 attr(pal, "colorType") <- "quantile"
 attr(pal, "colorArgs") <- list(probs = seq(0, 1, length = 9), na.color = "#808080")
 
-map <- leaflet(options = leafletOptions(attributionControl = FALSE)) |>
-  addProviderTiles("CartoDB.Positron") |>
-  setView(-79.7, 38, zoom = 7) |>
-  addLegend(
-    "bottomleft", pal, c(0, 1),
-    title = "Health Access Score",
-    opacity = 0.7,
-    na.label = "Not Available",
-    layerId = "legend"
-  )
+map <- leaflet(options = leafletOptions(attributionControl = FALSE, zoomControl = FALSE)) |>
+  addControl(tags$table(
+    class = "legend",
+    tags$tr(
+      tags$td("Lower"),
+      tags$td(class = "legend-scale"),
+      tags$td("Higher")
+    )
+  ), 'bottomright', className = "") |>
+  setView(-79.7, 38, zoom = 7)
 
 ## add all polygon layers
 for (scale in names(scales)) {
@@ -156,24 +153,30 @@ for (scale in names(scales)) {
     map,
     data = shapes[[scale]],
     group = scale,
-    fillOpacity = 0.7,
+    fillColor = "#fff",
+    fillOpacity = 1,
     stroke = TRUE,
     smoothFactor = 0.7,
     weight = 0.5,
     color = "#202020",
-    labelOptions = list(textsize = 14),
-    label = make_label(scale, shapes[[scale]]),
     layerId = ~id
-  )
+  ) |> hideGroup(scale)
 }
 
 # render map
 map
 ```
 
+
 Row
 -
-### Breakdown
+
+### Information
+```{r}
+output_info("Virginia", "Hover over shapes or line, or select a Health District or County to see more.")
+```
+
+### Subregions
 ```{r plot}
 # prepare data for initial plot
 grouped_data <- group_by(features$district, name)
@@ -210,6 +213,9 @@ plot_ly(
     fillcolor = "transparent",
     line = list(color = "#d6d6d6")
   ) |>
-  layout(xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE)) |>
+  layout(
+    xaxis = list(fixedrange = TRUE),
+    yaxis = list(fixedrange = TRUE)
+  ) |>
   config(displayModeBar = FALSE, showTips = FALSE)
 ```
