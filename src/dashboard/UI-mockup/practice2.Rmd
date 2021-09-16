@@ -1,0 +1,147 @@
+---
+title: "Practice"
+output: 
+  flexdashboard::flex_dashboard:
+    logo: BII_logo_small.png
+    orientation: rows
+    vertical_layout: fill
+#    theme: yeti
+    navbar:
+      - { title: "About", href: "https://biocomplexity.virginia.edu/", align: right }
+      - { title: "Data Download", href: "#download", align: right, icon: 'fa-download' }   # page anchors always lowercase! page is "Download", anchor is "#download"
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(htmltools)
+```
+
+ 
+<!---Sidebar Menu {.sidebar data-width=200}
+==================================
+
+#### Community Capitals
+
+[Tab 1]
+
+[Tab 2]
+
+[Page 4] -------->
+
+
+```{r}
+# couldn't get tabs to work in sidebar
+
+### VDH
+
+#Healthy Moms and Babies
+
+#Health Access
+```
+
+
+
+Tab 1
+======================================================================
+
+
+Row {data-height=120}
+-----------------------------------------------------------------------
+
+### Plot Controls 
+
+```{css my-content, echo = FALSE}
+#plot-controls .chart-title {
+    display: none;
+}
+```
+
+:::: {style="display: flex; column-gap: 50px; padding-left: 20px"}
+
+:::{} 
+
+Variable 1    
+```{r}
+tags$div(
+  #tags$label("Variable 1", "for" = "select_variable"),
+  tags$select(
+      id = "select_variable",
+      #class = "custom-select",
+      #role = "group",
+      #onchange = "interactions.change_variable(this)",
+      tags$option(value = 'test1', 'test 1'),
+      tags$option(value = 'test2', 'test 2')
+      #lapply(names(measures), function(v) tags$option(value = v, v)) 
+    )
+  )
+```
+
+:::
+
+:::{}
+Variable 2
+```{r}
+tags$div(
+  #tags$label("Variable 2", "for" = "select_variable"),
+  tags$select(
+      id = "select_variable",
+      #class = "custom-select",
+      #role = "group",
+      #onchange = "interactions.change_variable(this)",
+      tags$option(value = 'var1', 'var 1'),
+      tags$option(value = 'var2', 'var 2')
+      #lapply(names(measures), function(v) tags$option(value = v, v)) 
+    )
+  )
+```
+
+:::
+
+::::
+
+
+Row {data-height=650}
+-----------------------------------------------------------------------
+
+### Map 
+
+```{r}
+
+```
+
+
+Row {data-height=350}
+-----------------------------------------------------------------------
+
+### Table
+
+```{r}
+
+```
+
+### Box Plots and Line Plots
+
+```{r}
+
+```
+
+Tab 2 
+================================================
+
+[Tab 1]
+
+Page 3 {data-navmenu="Pages"}
+===============================================
+
+Text
+
+
+Page 4 {data-navmenu="Pages"}
+============================================
+
+page 4 text
+
+Download {.hidden}
+===========================================
+
+get data
