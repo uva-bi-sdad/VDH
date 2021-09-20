@@ -36,25 +36,25 @@ data <- lapply(list(
 })
 
 # simplify polygons
-features <- c("health_district", "county_name", "tract_name", "name", "id", "geometry")
-shapes <- lapply(lapply(data, function(d) d[!duplicated(d$id), features[features %in% colnames(d)]]), function(d) {
-  if (nrow(d) > 50) st_geometry(d) <- ms_simplify(d$geometry, .05, keep_shapes = TRUE)
-  d
-})
-
-# write preformatted data files
-dir.create("assets", FALSE)
-for (n in names(shapes)) {
-  # write json
-  unlink(paste0("assets/", n, ".geojson"))
-  st_write(
-    st_as_sf(shapes[[n]], coords = c("x", "y"), crs = 28992, agr = "constant"),
-    paste0("assets/", n, ".geojson")
-  )
-
-  # write csv
-  write.csv(st_drop_geometry(data[[n]]), paste0("assets/", n, ".csv"), row.names = FALSE)
-}
+# features <- c("health_district", "county_name", "tract_name", "name", "id", "geometry")
+# shapes <- lapply(lapply(data, function(d) d[!duplicated(d$id), features[features %in% colnames(d)]]), function(d) {
+#   if (nrow(d) > 50) st_geometry(d) <- ms_simplify(d$geometry, .05, keep_shapes = TRUE)
+#   d
+# })
+# 
+# # write preformatted data files
+# dir.create("assets", FALSE)
+# for (n in names(shapes)) {
+#   # write json
+#   unlink(paste0("assets/", n, ".geojson"))
+#   st_write(
+#     st_as_sf(shapes[[n]], coords = c("x", "y"), crs = 28992, agr = "constant"),
+#     paste0("assets/", n, ".geojson")
+#   )
+# 
+#   # write csv
+#   write.csv(st_drop_geometry(data[[n]]), paste0("assets/", n, ".csv"), row.names = FALSE)
+# }
 
 # write json
 year_range <- range(as.numeric(as.character(data$district$year)))
@@ -86,6 +86,8 @@ measures <- list(
     description = "Health Access Description",
     icon = "alarm",
     name = "Health Access",
+    part_of = list(),
+    related_to = list(),
     components = list(
       "district" = c(
         "No Health Insurance" = "no_health_ins",
@@ -100,7 +102,6 @@ measures <- list(
         "No Health Insurance" = "no_health_ins",
         "High Blood Pressure" = "bphigh_crudeprev",
         "Cancer" = "cancer_crudeprev",
-        "High Cholesterol" = "highchol_crudeprev",
         "Obesity" = "obesity_crudeprev",
         "Diabetes" = "diabetes_crudeprev",
         "Mental Health" = "mhlth_crudeprev",
@@ -110,7 +111,6 @@ measures <- list(
         "No Health Insurance" = "no_health_ins",
         "High Blood Pressure" = "bphigh_crudeprev",
         "Cancer" = "cancer_crudeprev",
-        "High Cholesterol" = "highchol_crudeprev",
         "Obesity" = "obesity_crudeprev",
         "Diabetes" = "diabetes_crudeprev",
         "Mental Health" = "mhlth_crudeprev",
@@ -120,9 +120,10 @@ measures <- list(
   )
 )
 format_summary = function(v, y){
-  s <- as.data.frame(do.call(rbind, tapply(v, y, summary, na.rm = TRUE)))
-  colnames(s) = c("min", "q1", "median", "mean", "q3", "max", if(length(s) > 6) "nas")
-  as.list(s)
+  # s <- as.data.frame(do.call(rbind, tapply(v, y, summary, na.rm = TRUE)))
+  # colnames(s) = c("min", "q1", "median", "mean", "q3", "max", if(length(s) > 6) "nas")
+  # as.list(s)
+  list()
 }
 
 for (variable in colnames(vhd_data)) {
@@ -137,18 +138,26 @@ for (variable in colnames(vhd_data)) {
       tract_data[, variable, drop = TRUE]
     )
     if (!all(v == 0)) {
-      measures[[variable]] <- list(
-        name = format_name(variable),
-        summaries = list(
-          "district" = format_summary(vhd_data[, variable, drop = TRUE], vhd_data$year),
-          "county" = format_summary(county_data[, variable, drop = TRUE], county_data$year),
-          "tract" = format_summary(tract_data[, variable, drop = TRUE], tract_data$year)
-        ),
-        components = measures[[variable]]$components
+      measures[[variable]]$name <- format_name(variable)
+      measures[[variable]]$summaries <- list(
+        district = format_summary(vhd_data[, variable, drop = TRUE], vhd_data$year),
+        county = format_summary(county_data[, variable, drop = TRUE], county_data$year),
+        tract = format_summary(tract_data[, variable, drop = TRUE], tract_data$year)
       )
+      measures[[variable]]$components <- measures[[variable]]$components
     }
   }
 }
+
+measures$bphigh_crudeprev
+for(comp in names(measures)){
+  l = measures[[comp]]
+  if(length(l$components)) for(s in names(l$components)) for(m in l$components[[s]]){
+    measures[[m]]$part_of[[s]] = c(measures[[m]]$part_of[[s]], comp)
+  }
+}
+
+
 jsonlite::write_json(measures, "assets/measures.json", auto_unbox = TRUE)
 
 rm(list = ls())

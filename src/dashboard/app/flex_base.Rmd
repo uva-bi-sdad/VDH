@@ -5,7 +5,7 @@ output:
     self_contained: FALSE
     favicon: "https://www.vdh.virginia.gov/content/themes/vdh-shared/assets/images/icon.png"
     logo: "https://www.developer.virginia.gov/media/developer/resources/brand/banner/latest/cardinal.svg"
-    orientation: rows
+    orientation: columns
     vertical_layout: fill
     mathjax: null
     resize_reload: FALSE
@@ -46,7 +46,7 @@ locations <- lapply(features, function(l) {
     ), drop = TRUE]
   })
   names(r) <- ids
-  r$levels <- c("All", vapply(r, "[[", "", "name"))
+  r$levels <- c(All = "All", vapply(r, "[[", "", "name"))
   r
 })
 
@@ -60,7 +60,7 @@ nyears <- year_range[2] - year_range[1] + 1
 # add assets to JavaScript
 tags$script(paste0(
   "const measures = ", paste(readLines("assets/measures.json"), collapse = ""),
-  ", locations = ", toJSON(locations, auto_unbox = TRUE),
+  ", locations = ", paste(readLines("assets/virginia_2010.json"), collapse = ""),
   ", meta = ", toJSON(list(
     year_range = year_range,
     locations = as.list(structure(names(scales), names = scales))
@@ -69,65 +69,102 @@ tags$script(paste0(
 
 # include script (handles interactions and updates)
 tags$script(src = "script.js")
+tags$link(href = "style.css", rel = "stylesheet")
 
-# custom styling
-tags$style(
-  type = "text/css",
-  paste0(c(
-    "h1, h2{margin-top: .5rem}",
-    ".sidebar label{margin: .7em 0 .2em 0}",
-    "label.form-check-label{margin: 0}",
-    ".leaflet-container{background: #fff}",
-    "#year label, #year input{cursor: pointer}",
-    ".form-check{padding: 0 .5em .5em .7em}",
-    ".hidden{display: none}",
-    ".form-check-input{position: relative; margin-left: 0}",
-    ".legend{width: 300px; padding: .5em 1em .5em 0}",
-    ".legend td:first-of-type{text-align: right}",
-    ".legend-scale{width: 80%; height: 30px}",
-    ".legend-scale span{height: 100%; width: 10%; display: inline-block}",
-    ".table td{padding: 0}"
-  ), collapse = "\n")
+# slider script and skin
+tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js")
+tags$link(
+  href = "https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/css/ion.rangeSlider.min.css",
+  rel = "stylesheet"
 )
 ```
 
-Inputs {.sidebar}
+Input {.top-menu}
 -
 ```{r menu}
 div(
   id = "menu",
-  h2("Location"),
-  input_buttongroup("Region Type", names(scales[-3]), display = scales[-3], id = "scale"),
-  lapply(names(scales[-3]), function(s) {
+  class = "row",
+  div(
+    class = "col",
     div(
-      class = "hidden",
-      input_select(
-        scales[[s]],
-        locations[[s]]$levels,
-        condition = "scale",
-        variable = scale_variables[[s]],
-        id = s,
-        value = s,
-        reset_button = TRUE
+      class = "row",
+      p("Location", class = "menu-group-label")
+    ),
+    div(
+      class = "row input-group",
+      div(
+        class = "row input-group-close",
+        div(
+          class = "col",
+          input_buttongroup("Selection Type", names(scales[-3]), display = c("District", "County"), id = "scale")
+        ),
+        div(
+          class = "col",
+          lapply(names(scales[-3]), function(s) {
+            div(
+              class = "hidden",
+              input_select(
+                scales[[s]],
+                names(locations[[s]]$levels),
+                display = locations[[s]]$levels,
+                condition = "scale",
+                variable = scale_variables[[s]],
+                id = s,
+                value = s,
+                reset_button = TRUE
+              )
+            )
+          })
+        )
+      ),
+      div(
+        class = "col",
+        input_select("Resolution", names(scales), display = scales, id = "shapes")
+      ),
+      div(
+        class = "col",
+        input_select(
+          "Region Type", c("All", unique(features$district$region_type)),
+          variable = "region_type", id = "region_type", multi = TRUE
+        )
       )
     )
-  }),
-  input_select("Resolution", names(scales), display = scales, id = "shapes"),
-  input_select(
-    "Region Types", c("All", unique(features$district$region_type)),
-    variable = "region_type", id = "region_type", multi = TRUE
   ),
-  h2("Time"),
-  input_radio(
-    "Focal Year", seq(year_range[1], year_range[2]),
-    variable = "year", default = year_range[2], id = "year"
-  ),
-  h2("Data"),
-  input_select("Variable", names(measures), display = vapply(measures, "[[", "", "name"), id = "variable")
+  div(
+    class = "col-3",
+    div(
+      class = "row", 
+      p("Time", class = "menu-group-label")
+    ),
+    div(
+      class = "row",
+      input_slider(
+        "Focal Year", year_range,
+        variable = "year", default = year_range[2], id = "year"
+      )
+    )
+  )
 )
 ```
 
-Row
+Column {.info-pane}
+-
+### Information
+```{r}
+output_info(
+  "Virginia",
+  "Hover over shapes or line, or select a Health District or County to see more.",
+  variable = input_select(
+    "Measure",
+    names(measures),
+    display = vapply(measures, "[[", "", "name"),
+    id = "variable"
+  )
+)
+```
+
+Column
 -
 ### Location
 ```{r map}
@@ -139,13 +176,10 @@ attr(pal, "colorArgs") <- list(probs = seq(0, 1, length = 9), na.color = "#80808
 map <- leaflet(options = leafletOptions(attributionControl = FALSE, zoomControl = FALSE)) |>
   addControl(tags$table(
     class = "legend",
-    tags$tr(
-      tags$td("Lower"),
-      tags$td(class = "legend-scale"),
-      tags$td("Higher")
-    )
+    tags$tr(tags$td(colspan = 3, class = "legend-scale")),
+    tags$tr(tags$td("Below"), tags$td("State Mean"), tags$td("Above"))
   ), 'bottomright', className = "") |>
-  setView(-79.7, 38, zoom = 7)
+  setView(-79.5, 38, zoom = 7)
 
 ## add all polygon layers
 for (scale in names(scales)) {
@@ -157,8 +191,8 @@ for (scale in names(scales)) {
     fillOpacity = 1,
     stroke = TRUE,
     smoothFactor = 0.7,
-    weight = 0.5,
-    color = "#202020",
+    weight = 2,
+    color = "#000000",
     layerId = ~id
   ) |> hideGroup(scale)
 }
@@ -167,16 +201,7 @@ for (scale in names(scales)) {
 map
 ```
 
-
-Row
--
-
-### Information
-```{r}
-output_info("Virginia", "Hover over shapes or line, or select a Health District or County to see more.")
-```
-
-### Subregions
+### Extreme Subregions
 ```{r plot}
 # prepare data for initial plot
 grouped_data <- group_by(features$district, name)

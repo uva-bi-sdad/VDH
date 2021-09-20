@@ -2,7 +2,7 @@ make_id <- function(l) {
   paste0("select_", gsub("\\s", "", l))
 }
 
-output_info <- function(title = "Overall", message = "") {
+output_info <- function(title = "Overall", message = "", variable = h3("Variable")) {
   div(
     id = "summary",
     class = "auto-output text-display",
@@ -13,10 +13,35 @@ output_info <- function(title = "Overall", message = "") {
         h1(title),
         p(if (cl == "") message else ""),
         tags$table(class = "table location-table"),
-        h2("Variable"),
+        if(cl == "") div(variable) else h3("Variable"),
         tags$table(class = "table measure-table"),
       )
     })
+  )
+}
+
+input_slider <- function(label, range, stepsize = 1, ..., variable = NULL, default = NULL,
+  display = options, id = make_id(label), ticks = "true", skin = "square") {
+  if (missing(default)) default <- range[length(range)]
+  div(
+    class = "slider-wrapper",
+    tags$label(label, `for` = id),
+    tags$input(
+      id = id,
+      class = "auto-input js-range-slider",
+      name = id,
+      `auto-type` = "slider",
+      variable = variable,
+      `data-type` = "single",
+      ...,
+      `data-from` = default,
+      `data-min` = range[1],
+      `data-max` = range[2],
+      `data-step` = stepsize,
+      `data-grid` = ticks,
+      `data-skin` = skin,
+      `data-prettify-enabled` = 'false'
+    )
   )
 }
 
@@ -26,7 +51,7 @@ input_select <- function(label, options, ..., variable = NULL, default = NULL,
   list(
     tags$label(label, `for` = id),
     div(
-      class = if (reset_button) "input-group mb-3" else "",
+      class = "input-group mb-3",
       tags$select(
         id = id,
         class = "auto-input custom-select",
@@ -38,7 +63,7 @@ input_select <- function(label, options, ..., variable = NULL, default = NULL,
       ),
       if (!missing(reset_button)) {
         div(class = "input-group-append", tags$button(
-          class = "btn btn-outline-default",
+          class = "btn btn-default",
           type = "button",
           if (is.character(reset_button)) reset_button else "Reset"
         ))
@@ -76,7 +101,7 @@ input_buttongroup <- function(label, options, ..., variable = NULL, default = NU
 }
 
 input_radio <- function(label, options, ..., variable = NULL, default = NULL,
-                        display = options, id = make_id(label)) {
+                        display = options, id = make_id(label), inline = TRUE) {
   if (missing(default)) default <- options[1]
   div(
     tags$label(`for` = id, label),
@@ -89,7 +114,7 @@ input_radio <- function(label, options, ..., variable = NULL, default = NULL,
         oid <- paste0(id, "_", options[i])
         div(
           id = id,
-          class = "form-check",
+          class = paste("form-check", if(inline) "form-check-inline"),
           tags$label(class = "form-check-label", `for` = oid, display[i]),
           tags$input(
             id = oid,
