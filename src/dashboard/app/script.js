@@ -319,7 +319,7 @@ function pal(value, which, normed) {
     min = normed ? 0 : s.min[y],
     max = normed ? 1 : s.max[y],
     nm = normed ? 0.5 : s.norm_mean[y]
-  return Object.prototype.hasOwnProperty.call(s, 'min') && typeof value === 'number'
+  return typeof value === 'number'
     ? colors[
         Math.max(
           0,
