@@ -13,7 +13,7 @@ output_info <- function(title = "Overall", message = "", variable = h3("Variable
         h1(title),
         p(if (cl == "") message else ""),
         tags$table(class = "table location-table"),
-        if(cl == "") div(variable) else h3("Variable"),
+        if (cl == "") div(variable) else h3("Variable"),
         tags$table(class = "table measure-table"),
       )
     })
@@ -21,7 +21,7 @@ output_info <- function(title = "Overall", message = "", variable = h3("Variable
 }
 
 input_slider <- function(label, range, stepsize = 1, ..., variable = NULL, default = NULL,
-  display = options, id = make_id(label), ticks = "true", skin = "square") {
+                         display = options, id = make_id(label), ticks = "true", skin = "square") {
   if (missing(default)) default <- range[length(range)]
   div(
     class = "slider-wrapper",
@@ -40,7 +40,7 @@ input_slider <- function(label, range, stepsize = 1, ..., variable = NULL, defau
       `data-step` = stepsize,
       `data-grid` = ticks,
       `data-skin` = skin,
-      `data-prettify-enabled` = 'false'
+      `data-prettify-enabled` = "false"
     )
   )
 }
@@ -114,7 +114,7 @@ input_radio <- function(label, options, ..., variable = NULL, default = NULL,
         oid <- paste0(id, "_", options[i])
         div(
           id = id,
-          class = paste("form-check", if(inline) "form-check-inline"),
+          class = paste("form-check", if (inline) "form-check-inline"),
           tags$label(class = "form-check-label", `for` = oid, display[i]),
           tags$input(
             id = oid,

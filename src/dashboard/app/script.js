@@ -12,14 +12,45 @@ const palettes = {
   },
   updaters = {
     selection: function () {
+      const l = locations[_s.shapes],
+        selected = _s[_s.scale],
+        all = selected === 'All'
       selected_layers = {}
       if (viewid !== _s.region_type + _s.shapes + _s.scale + _s.variable) calculate_summaries()
-      var order = measures[_s.variable].order[_s.shapes][_u.year.current_index]
-      function select(i, n) {
-        for (; i < n; i++) selected_layers[order[i][0]] = order[i]
+      var i = 0,
+        bi = 0,
+        order = measures[_s.variable].order[_s.shapes][_u.year.current_index],
+        n = Math.min(_s.n_extremes, order.length)
+
+      // select from bottom
+      if (all) {
+        for (; bi < n; bi++) {
+          selected_layers[order[bi][0]] = order[i]
+        }
+      } else {
+        for (; bi < n; bi++) {
+          if (selected === l[order[bi][0]][_s.scale]) {
+            selected_layers[order[bi][0]] = order[bi]
+          } else if (n < order.length) n++
+        }
       }
-      select(0, Math.min(5, order.length))
-      if (order.length > 5) select(Math.max(5, order.length - 5), order.length)
+
+      // select from top
+      if (bi < order.length) {
+        i = order.length - 1
+        n = Math.max(bi, order.length - _s.n_extremes)
+        if (all) {
+          for (; i > n; i--) {
+            selected_layers[order[i][0]] = order[i]
+          }
+        } else {
+          for (; i > n; i--) {
+            if (selected === l[order[i][0]][_s.scale]) {
+              selected_layers[order[i][0]] = order[i]
+            } else if (n > bi) n--
+          }
+        }
+      }
     },
     info: function (id) {
       const m = measures[_s.variable]
@@ -309,7 +340,7 @@ var data = {},
   },
   summary = {},
   _u = {},
-  _s = {},
+  _s = {n_extremes: 8},
   _c = {}
 
 function pal(value, which, normed) {
@@ -480,7 +511,6 @@ function init() {
             locations[g][k].county = locations[g][k].id.substr(0, 5)
             if (g !== 'county') {
               locations[g][k].tract = locations[g][k].id.substr(0, 11)
-              locations[g][k].name = (g === 'tract' ? 'Census Tract ' : 'Block Group ') + locations[g][k].name
             }
           }
           locationsByName[g][locations[g][k].name] = locations[g][k]
@@ -518,21 +548,21 @@ function init() {
         if (d.points && d.points.length === 1 && page.plots[0].data[d.points[0].fullData.index]) {
           page.plots[0].data[d.points[0].fullData.index].line.width = 4
           Plotly.react(page.plots[0], page.plots[0].data, page.plots[0].layout)
-          page.map.layerManager._byLayerId['shape\n' + locationsByName[_s.shapes][d.points[0].text].id].setStyle({
-            color: '#ffffff',
-          })
           _u.summary.show(locationsByName[_s.shapes][d.points[0].text].id)
-          page.map.layerManager._byLayerId['shape\n' + locationsByName[_s.shapes][d.points[0].text].id].bringToFront()
+          var layer = page.map.layerManager._byLayerId['shape\n' + locationsByName[_s.shapes][d.points[0].text].id]
+          if (layer._map) {
+            layer.setStyle({color: '#ffffff'})
+            layer.bringToFront()
+          }
         }
       })
         .on('plotly_unhover', function (d) {
           if (d.points && d.points.length === 1 && page.plots[0].data[d.points[0].fullData.index]) {
             page.plots[0].data[d.points[0].fullData.index].line.width = 2
             Plotly.react(page.plots[0], page.plots[0].data, page.plots[0].layout)
-            page.map.layerManager._byLayerId['shape\n' + locationsByName[_s.shapes][d.points[0].text].id].setStyle({
-              color: '#000000',
-            })
             _u.summary.revert()
+            var layer = page.map.layerManager._byLayerId['shape\n' + locationsByName[_s.shapes][d.points[0].text].id]
+            if (layer._map) layer.setStyle({color: '#000000'})
           }
         })
         .on('plotly_click', function (d) {

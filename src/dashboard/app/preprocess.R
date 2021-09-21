@@ -41,7 +41,7 @@ data <- lapply(list(
 #   if (nrow(d) > 50) st_geometry(d) <- ms_simplify(d$geometry, .05, keep_shapes = TRUE)
 #   d
 # })
-# 
+#
 # # write preformatted data files
 # dir.create("assets", FALSE)
 # for (n in names(shapes)) {
@@ -51,7 +51,7 @@ data <- lapply(list(
 #     st_as_sf(shapes[[n]], coords = c("x", "y"), crs = 28992, agr = "constant"),
 #     paste0("assets/", n, ".geojson")
 #   )
-# 
+#
 #   # write csv
 #   write.csv(st_drop_geometry(data[[n]]), paste0("assets/", n, ".csv"), row.names = FALSE)
 # }
@@ -66,11 +66,11 @@ write_json(lapply(data, function(s) {
     "id", "fid", "county_id", "census_tract_fips", "hd_rural",
     "region_type", "HealthDistrict", "srhp_rural", "state_name"
   )], s$id)
-  for(i in seq_along(d)){
-    if(nrow(d[[i]]) != nyears){
+  for (i in seq_along(d)) {
+    if (nrow(d[[i]]) != nyears) {
       td <- rbind(d[[i]], rep(NA, nyears - nrow(d[[i]])))
       td[-seq_len(nrow(d[[i]])), "year"] <- year_range[!year_range %in% d[[i]]$year]
-      d[[i]] <- td[order(td$year),]
+      d[[i]] <- td[order(td$year), ]
     }
   }
   d
@@ -119,7 +119,7 @@ measures <- list(
     )
   )
 )
-format_summary = function(v, y){
+format_summary <- function(v, y) {
   # s <- as.data.frame(do.call(rbind, tapply(v, y, summary, na.rm = TRUE)))
   # colnames(s) = c("min", "q1", "median", "mean", "q3", "max", if(length(s) > 6) "nas")
   # as.list(s)
@@ -150,10 +150,14 @@ for (variable in colnames(vhd_data)) {
 }
 
 measures$bphigh_crudeprev
-for(comp in names(measures)){
-  l = measures[[comp]]
-  if(length(l$components)) for(s in names(l$components)) for(m in l$components[[s]]){
-    measures[[m]]$part_of[[s]] = c(measures[[m]]$part_of[[s]], comp)
+for (comp in names(measures)) {
+  l <- measures[[comp]]
+  if (length(l$components)) {
+    for (s in names(l$components)) {
+      for (m in l$components[[s]]) {
+        measures[[m]]$part_of[[s]] <- c(measures[[m]]$part_of[[s]], comp)
+      }
+    }
   }
 }
 

@@ -134,7 +134,7 @@ div(
   div(
     class = "col-3",
     div(
-      class = "row", 
+      class = "row",
       p("Time", class = "menu-group-label")
     ),
     div(
@@ -178,7 +178,7 @@ map <- leaflet(options = leafletOptions(attributionControl = FALSE, zoomControl 
     class = "legend",
     tags$tr(tags$td(colspan = 3, class = "legend-scale")),
     tags$tr(tags$td("Below"), tags$td("State Mean"), tags$td("Above"))
-  ), 'bottomright', className = "") |>
+  ), "bottomright", className = "") |>
   setView(-79.5, 38, zoom = 7)
 
 ## add all polygon layers
