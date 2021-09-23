@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(RSelenium)
 library(rvest)
 library(data.table)
+# devtools::install_github("dads2busy/dataplumbr")
 library(dataplumbr)
 library(dplyr)
 library(tibble)
@@ -19,31 +20,36 @@ library(iterators)
 library(itertools)
 library(magrittr)
 library(sf)
-source("./helper_functions.R")
+source("../../src/helper_functions.R")
 ```
 
 ## Create Remote Driver for Selenium
 ```{r}
 # IF ON RIVANNA, USE THIS
-# port <- 4444
-# ip <- "104.248.112.16"
-# rdBrowser <- "firefox"
-# 
-# remDr <- remoteDriver$new(
-#   remoteServerAddr = ip,
-#   port = port,
-#   browserName = rdBrowser
-# )
-# 
-# remDr$open()
-# remDr$setTimeout(type = "page load", milliseconds = 20000)
+# There are four instances of Selenium currently running on our server, each with a different port number.
+# Set the port you want to use (4444, 4445, 4446, or 4447) and run your code.
+# To monitor what is going on, a separate port is available for each of the selenium instances (7900, 7901, 7902, 7903). Password is 'secret'.
+# So, if you want to watch what is happening after you sent your code to 4446 (the 3rd one), you’d go to http://104.248.112.16:7902 (also the third one). 
+
+port <- 4444
+ip <- "104.248.112.16"
+rdBrowser <- "firefox"
+
+remDr <- remoteDriver$new(
+  remoteServerAddr = ip,
+  port = port,
+  browserName = rdBrowser
+)
+
+remDr$open()
+remDr$setTimeout(type = "page load", milliseconds = 20000)
 # remDr$navigate("http://www.google.com/ncr")
 # remDr$navigate("http://www.r-project.org")
 
 # IF ON LOCAL COMPUTER< USE THIS
-rD <- rsDriver(browser="firefox", port=4599L, verbose=F)
-remDr <- rD[["client"]]
-remDr$setTimeout(type = "page load", milliseconds = 20000)
+# rD <- rsDriver(browser="firefox", port=4599L, verbose=F)
+# remDr <- rD[["client"]]
+# remDr$setTimeout(type = "page load", milliseconds = 20000)
 ```
 
 ## Create a function for getting doctor cards within 100 miles of given point
@@ -82,7 +88,7 @@ get_dr_info <- function(html) {
 You'll need to get the final page number by looking at the bottom of the first page
 ```{r}
 dr_info_dt <- data.table(name = character(), specialties = character(), address = character())
-for (p in 1:1278) {
+for (p in 1:5) {
   Sys.sleep(1)
   print(p)
   get_page(page_num = p)
