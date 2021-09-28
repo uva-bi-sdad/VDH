@@ -19,34 +19,39 @@ const palettes = {
       if (viewid !== _s.region_type + _s.shapes + _s.scale + _s.variable) calculate_summaries()
       var i = 0,
         bi = 0,
-        order = measures[_s.variable].order[_s.shapes][_u.year.current_index],
-        n = Math.min(_s.n_extremes, order.length)
+        o = measures[_s.variable].order[_s.shapes][_u.year.current_index],
+        n = Math.min(_s.n_extremes, o.length)
+      selected_index = []
 
       // select from bottom
       if (all) {
         for (; bi < n; bi++) {
-          selected_layers[order[bi][0]] = order[i]
+          selected_layers[o[bi][0]] = o[bi]
+          selected_index.push(bi)
         }
       } else {
         for (; bi < n; bi++) {
-          if (selected === l[order[bi][0]][_s.scale]) {
-            selected_layers[order[bi][0]] = order[bi]
-          } else if (n < order.length) n++
+          if (selected === l[o[bi][0]][_s.scale]) {
+            selected_layers[o[bi][0]] = o[bi]
+            selected_index.push(bi)
+          } else if (n < o.length) n++
         }
       }
 
       // select from top
-      if (bi < order.length) {
-        i = order.length - 1
-        n = Math.max(bi, order.length - _s.n_extremes)
+      if (bi < o.length) {
+        i = o.length - 1
+        n = Math.max(bi, o.length - _s.n_extremes)
         if (all) {
           for (; i > n; i--) {
-            selected_layers[order[i][0]] = order[i]
+            selected_layers[o[i][0]] = o[i]
+            selected_index.splice(bi, 0, i)
           }
         } else {
           for (; i > n; i--) {
-            if (selected === l[order[i][0]][_s.scale]) {
-              selected_layers[order[i][0]] = order[i]
+            if (selected === l[o[i][0]][_s.scale]) {
+              selected_layers[o[i][0]] = o[i]
+              selected_index.splice(bi, 0, i)
             } else if (n > bi) n--
           }
         }
@@ -56,8 +61,8 @@ const palettes = {
       const m = measures[_s.variable]
       var p, l, e, i, d, n
       if (this.variable !== _s.variable) {
-        init_measure_table(0, this.temp.children[4], true)
-        init_measure_table(0, this.base.children[4])
+        init_measure_table(this.temp.children[4], true)
+        init_measure_table(this.base.children[4])
         this.variable = _s.variable
       }
       if (id) {
@@ -155,8 +160,34 @@ const palettes = {
         this.temp.classList.add('hidden')
       }
     },
+    rank: function () {
+      const o = measures[_s.variable].order[_s.shapes],
+        m = measures[_s.variable].summaries[_s.shapes],
+        d = data[_s.shapes],
+        cy = _u.year.current_index,
+        ny = meta.years.length,
+        n = o[0].length
+      this.e.lastElementChild.lastElementChild.innerText = ''
+      this.e.lastElementChild.firstElementChild.firstElementChild.firstElementChild.innerText =
+        _u.shapes.display[_u.shapes.current_index]
+      for (var i = n, id, y, r, ed; i--; )
+        if (Object.prototype.hasOwnProperty.call(selected_layers, o[cy][i][0])) {
+          id = o[cy][i][0]
+          for (y = 0; y < ny; y++) {
+            ed = d[id][_s.variable][y]
+            r = rank_rows[id].children[y + 1]
+            if (!r.firstElementChild.innerText) {
+              r.firstElementChild.innerText = format_value(ed)
+              r.lastElementChild.style.height = ((ed - m.min[y]) / (m.max[y] - m.min[y])) * 100 + '%'
+              r.lastElementChild.style.background = pal(ed, 'divergent')
+            }
+          }
+          this.e.lastElementChild.lastElementChild.appendChild(rank_rows[o[cy][i][0]])
+        }
+    },
     polygons: function () {
-      const all = _s[_s.scale] === 'All'
+      const all = _s[_s.scale] === 'All',
+        all_regions = _s.region_type === 'All'
       var k, layer
       setTimeout(
         page.map.flyToBounds.bind(
@@ -168,17 +199,19 @@ const palettes = {
       for (k in page.map.layerManager._byLayerId)
         if (Object.prototype.hasOwnProperty.call(page.map.layerManager._byLayerId, k)) {
           layer = page.map.layerManager._byLayerId[k]
-          if (layer.options.group === _s.shapes) {
+          if (
+            layer.options.group === _s.shapes &&
+            Object.prototype.hasOwnProperty.call(data[layer.options.group], layer.options.layerId)
+          ) {
             if (all || _s[_s.scale] === locations[layer.options.group][layer.options.layerId][_s.scale]) {
+              colors[layer.options.layerId] = pal(
+                data[layer.options.group][layer.options.layerId][_s.variable][_u.year.current_index],
+                'divergent'
+              )
               layer.setStyle({
                 fillColor:
-                  _s.region_type === 'All' || _s.region_type === locations[_s.shapes][layer.options.layerId].type
-                    ? pal(
-                        Object.prototype.hasOwnProperty.call(data[layer.options.group], layer.options.layerId)
-                          ? data[layer.options.group][layer.options.layerId][_s.variable][_u.year.current_index]
-                          : 'NA',
-                        'divergent'
-                      )
+                  all_regions || _s.region_type === locations[_s.shapes][layer.options.layerId].type
+                    ? colors[layer.options.layerId]
                     : '#d8d8d8',
                 weight: Object.prototype.hasOwnProperty.call(selected_layers, layer.options.layerId) ? 3 : 0.5,
               })
@@ -217,28 +250,20 @@ const palettes = {
   },
   getters = {
     buttongroup: function () {
-      $.each(
-        this.options,
-        function (i, e) {
-          if (e.checked) {
-            this.update(e.value, i, true)
-          } else {
-            e.parentElement.classList.remove('active')
-          }
-        }.bind(this)
-      )
+      for (var i = this.options.length; i--; )
+        if (this.options[i].checked) {
+          this.update(this.options[i].value, i, true)
+        } else {
+          this.options[i].parentElement.classList.remove('active')
+        }
       return this.current
     },
     radio: function () {
-      $.each(
-        this.options,
-        function (i, e) {
-          if (e.checked) {
-            this.update(e.value, i, true)
-            return false
-          }
-        }.bind(this)
-      )
+      for (var i = this.options.length; i--; )
+        if (this.options[i].checked) {
+          this.update(this.options[i], i, true)
+          break
+        }
       return this.current
     },
     slider: function () {
@@ -253,36 +278,28 @@ const palettes = {
   setters = {
     buttongroup: function (v, passive) {
       if (this.current !== v && this.values.indexOf(v) !== -1) {
-        $.each(
-          this.options,
-          function (i, e) {
-            if (e.value === v) {
-              e.checked = true
-              e.parentElement.classList.add('active')
-              this.update(v, i, passive)
-            } else {
-              e.parentElement.classList.remove('active')
-            }
-          }.bind(this)
-        )
+        for (var i = this.options.length; i--; )
+          if (this.options[i].value === v) {
+            this.options[i].checked = true
+            this.options[i].parentElement.classList.add('active')
+            this.update(v, i, passive)
+          } else {
+            this.options[i].parentElement.classList.remove('active')
+          }
       }
     },
     radio: function (v, passive) {
       if (this.current !== v && this.values.indexOf(v) !== -1) {
-        $.each(
-          this.options,
-          function (i, e) {
-            if (e.value === v) {
-              e.checked = true
-              this.update(v, i, passive)
-            }
-          }.bind(this)
-        )
+        for (var i = this.options.length; i--; )
+          if (this.options[i].value === v) {
+            this.options[i].checked = true
+            this.update(v, i, passive)
+          }
       }
     },
     slider: function (v, i, passive) {
       if (this.current !== v) {
-        this.e.update({from: v})
+        this.e.value = v
         this.update(v, i, passive)
       }
     },
@@ -328,11 +345,14 @@ const palettes = {
   data_url = 'https://raw.githubusercontent.com/uva-bi-sdad/VDH/main/src/dashboard/app/assets/data.json'
 
 var data = {},
+  colors = {},
+  rank_rows = {},
   locationsByName = {},
   measureByDisplay = {},
   default_bounds = {},
   trace_template = '',
   selected_layers = {},
+  selected_index = [],
   viewid = '',
   page = {
     map: null,
@@ -340,7 +360,7 @@ var data = {},
   },
   summary = {},
   _u = {},
-  _s = {n_extremes: 8},
+  _s = {n_extremes: 10},
   _c = {}
 
 function pal(value, which, normed) {
@@ -349,7 +369,7 @@ function pal(value, which, normed) {
     y = _u.year.current_index,
     min = normed ? 0 : s.min[y],
     max = normed ? 1 : s.max[y],
-    nm = normed ? 0.5 : s.norm_mean[y]
+    nm = normed ? 0.5 : s.norm_median[y]
   return typeof value === 'number'
     ? colors[
         Math.max(
@@ -378,17 +398,12 @@ function make_data_entry(group, id, variable, name, color) {
     e.x[i] = d.year[i]
     e.y[i] = d[variable][i]
   }
-  e.color =
-    e.line.color =
-    e.marker.color =
-    e.marker.line.color =
-    e.textfont.color =
-      color || pal(d[variable][_u.year.current_index], 'divergent')
+  e.color = e.line.color = e.marker.color = e.marker.line.color = e.textfont.color = color || colors[id]
   e.name = name
   return e
 }
 
-function init_location_table(i, t) {
+function init_location_table(t) {
   var l, k, e
   for (l in locations.tract)
     if (Object.prototype.hasOwnProperty.call(locations.tract, l)) {
@@ -405,7 +420,7 @@ function init_location_table(i, t) {
     }
 }
 
-function init_measure_table(i, t, temp) {
+function init_measure_table(t, temp) {
   var e,
     i,
     c = measures[_s.variable].components[_s.shapes] || [],
@@ -483,23 +498,24 @@ function update() {
   _u.summary.update()
   updaters.polygons()
   updaters.plot_main()
+  _u.rank_table.update()
 }
 
 function init() {
   // add resize listener to container
-  page.header = $('.navbar')[0]
-  page.menu = $('#menu')[0]
-  page.container = $('#dashboard-container')[0]
+  page.header = document.getElementsByClassName('navbar')[0]
+  page.menu = document.getElementById('menu')
+  page.container = document.getElementById('dashboard-container')
   function resize_container() {
     const hh = page.header.getBoundingClientRect().height + 8,
       mh = page.menu.getBoundingClientRect().height + 8
     page.container.style.top = mh + 'px'
     page.container.style.height = document.body.getBoundingClientRect().height - hh - mh + 'px'
   }
-  $(window).on('resize', resize_container)
+  window.addEventListener('resize', resize_container)
 
   // make inverted location object
-  var g, k, i
+  var g, k, i, e, c, ce, ci, n, o, cond
   for (g in locations)
     if ('meta' !== g && Object.prototype.hasOwnProperty.call(locations, g)) {
       locationsByName[g] = {All: {id: ''}}
@@ -537,11 +553,12 @@ function init() {
     }
 
   // identify page components
-  page.map = $('.leaflet')[0].htmlwidget_data_init_result.getMap()
+  page.map = document.getElementsByClassName('leaflet')[0].htmlwidget_data_init_result.getMap()
   default_bounds = page.map.getBounds()
 
   // retrieve plot elements
-  $('.plotly').each(function (i, e) {
+  for (c = document.getElementsByClassName('plotly'), i = c.length; i--; ) {
+    e = c[i]
     if (e.on) {
       page.plots.push(e)
       e.on('plotly_hover', function (d) {
@@ -572,11 +589,11 @@ function init() {
           }
         })
     }
-  })
+  }
   trace_template = JSON.stringify(page.plots[0].data[0])
 
   // add interaction functions to region shapes
-  function add_layer_listeners(name, layer) {
+  function add_layer_listeners(layer) {
     layer.on({
       mouseover: function (e) {
         if (Object.prototype.hasOwnProperty.call(e.target.options, 'layerId')) {
@@ -623,23 +640,25 @@ function init() {
       },
     })
   }
-  $.each(page.map.layerManager._byLayerId, add_layer_listeners)
+  for (var k in page.map.layerManager._byLayerId)
+    if (Object.prototype.hasOwnProperty.call(page.map.layerManager._byLayerId, k)) {
+      add_layer_listeners(page.map.layerManager._byLayerId[k])
+    }
 
   // connect inputs
-  $('.auto-input').each(function (i, e) {
-    var o = {
-        type: e.getAttribute('auto-type'),
-        id: e.id,
-        current: '',
-        current_index: -1,
-        previous: '',
-        e: e,
-        values: [],
-        display: [],
-      },
-      c
+  for (c = document.getElementsByClassName('auto-input'), i = c.length; i--; ) {
+    e = c[i]
+    o = {
+      type: e.getAttribute('auto-type'),
+      id: e.id,
+      current: '',
+      current_index: -1,
+      previous: '',
+      e: e,
+      values: [],
+      display: [],
+    }
     if (Object.prototype.hasOwnProperty.call(setters, o.type)) {
-      if (o.type === 'slider') $(e).ionRangeSlider()
       o.options = o.type === 'select' ? e.children : e.getElementsByTagName('input')
       o.update = setters.update_select.bind(o)
       o.set = setters[o.type].bind(o)
@@ -653,33 +672,33 @@ function init() {
       // retrieve option values
       if (o.type === 'slider') {
         o.values = o.display = o.options = []
-        o.min = parseInt(o.e.getAttribute('data-min'))
-        o.max = parseInt(o.e.getAttribute('data-max'))
-        for (var i = o.min, n = o.max; i <= n; i++) {
-          o.values.push(i)
+        o.min = parseInt(o.e.min)
+        o.max = parseInt(o.e.max)
+        for (ci = o.min, n = o.max; ci <= n; ci++) {
+          o.values.push(ci)
         }
       } else {
-        $(e.children).each(function (i, e) {
-          o.values[i] = o.options[i].value
-          o.display[i] = e.innerText.trim() || o.values[i]
-        })
+        for (ci = e.children.length; ci--; ) {
+          o.values[ci] = o.options[ci].value
+          o.display[ci] = e.children[ci].innerText.trim() || o.values[ci]
+        }
       }
 
       // add listeners
       if (o.type === 'select' || o.type === 'slider') {
-        $(e).on('change', o.listen)
+        e.addEventListener('change', o.listen)
         if (e.nextElementSibling && e.nextElementSibling.className === 'input-group-append') {
-          $(e.nextElementSibling.firstElementChild).on('click', o.reset)
+          e.nextElementSibling.firstElementChild.addEventListener('click', o.reset)
         }
       } else {
-        $(o.options).on('click', o.listen)
+        for (ci = o.options.length; ci--; ) o.options[ci].addEventListener('click', o.listen)
       }
 
       // update display condition
-      if ((c = e.getAttribute('condition'))) {
-        if (!Object.prototype.hasOwnProperty.call(_c, c)) _c[c] = []
-        _c[c].push(e.id)
-        if (Object.prototype.hasOwnProperty.call(_s, c) && _s[c] === e.id) {
+      if ((cond = e.getAttribute('condition'))) {
+        if (!Object.prototype.hasOwnProperty.call(_c, cond)) _c[cond] = []
+        _c[cond].push(e.id)
+        if (Object.prototype.hasOwnProperty.call(_s, cond) && _s[cond] === e.id) {
           e.parentElement.parentElement.classList.remove('hidden')
         }
       }
@@ -687,42 +706,57 @@ function init() {
       // get initial values
       _s[e.id] = o.default = o.get()
     }
-  })
+  }
 
-  $('.auto-output').each(function (i, e) {
-    var o = {
+  for (c = document.getElementsByClassName('auto-output'), i = c.length; i--; ) {
+    e = c[i]
+    n = meta.years.length
+    o = {
       type: e.getAttribute('auto-type'),
       id: e.id,
-      base: e.firstElementChild,
-      temp: e.children[1],
       variable: _s.variable,
-      defaults: {
-        title: e.firstElementChild.children[0].innerText,
-        message: e.firstElementChild.children[1].innerText1,
-      },
-      show: function (id) {
-        this.update(id)
-        this.base.classList.add('hidden')
-        this.temp.classList.remove('hidden')
-      },
-      revert: function () {
-        this.base.classList.remove('hidden')
-        this.temp.classList.add('hidden')
-      },
+      e: e,
     }
     if (Object.prototype.hasOwnProperty.call(updaters, o.type)) {
       o.update = updaters[o.type].bind(o)
     }
     _u[e.id] = o
     if (o.type === 'info') {
+      o.base = e.firstElementChild
+      o.temp = e.children[1]
+      o.defaults = {
+        title: e.firstElementChild.children[0].innerText,
+        message: e.firstElementChild.children[1].innerText1,
+      }
+      o.show = function (id) {
+        this.update(id)
+        this.base.classList.add('hidden')
+        this.temp.classList.remove('hidden')
+      }
+      o.revert = function () {
+        this.base.classList.remove('hidden')
+        this.temp.classList.add('hidden')
+      }
       o.temp.children[1].classList.add('hidden')
-      $('.location-table', e).each(init_location_table)
-      $('.measure-table', e).each(init_measure_table)
+      for (ce = e.getElementsByClassName('location-table'), ci = ce.length; ci--; ) {
+        init_location_table(ce[ci])
+      }
+      for (ce = e.getElementsByClassName('measure-table'), ci = ce.length; ci--; ) {
+        init_measure_table(ce[ci])
+      }
+    } else if (o.type === 'rank') {
+      e.firstElementChild.firstElementChild.appendChild((e = document.createElement('tr')))
+      e.appendChild(document.createElement('th'))
+      e.lastElementChild.innerText = _u.shapes.display[_u.shapes.current_index]
+      for (ci = 0; ci < n; ci++) {
+        e.appendChild(document.createElement('th'))
+        e.lastElementChild.innerText = meta.years[ci]
+      }
     }
-  })
+  }
 
   // initialize legend
-  init_legend($('.legend-scale')[0])
+  init_legend(document.getElementsByClassName('legend-scale')[0])
 
   setTimeout(update, 0)
   setTimeout(resize_container, 0)
@@ -738,7 +772,7 @@ function quantile_inds(p, n) {
 }
 
 function init_summaries() {
-  var m, measure, s, ds, y
+  var m, measure, s, y
   for (measure in measures)
     if (Object.prototype.hasOwnProperty.call(measures, measure)) {
       m = measures[measure]
@@ -746,13 +780,12 @@ function init_summaries() {
       m.order = {}
       for (s in data) {
         if (Object.prototype.hasOwnProperty.call(data, s)) {
-          ds = data[s]
           m.order[s] = []
           m.summaries[s] = {
             max: [],
             q3: [],
             mean: [],
-            norm_mean: [],
+            norm_median: [],
             median: [],
             q1: [],
             min: [],
@@ -762,7 +795,7 @@ function init_summaries() {
             m.summaries[s].max.push(-Infinity)
             m.summaries[s].q3.push(0)
             m.summaries[s].mean.push(0)
-            m.summaries[s].norm_mean.push(0)
+            m.summaries[s].norm_median.push(0)
             m.summaries[s].median.push(0)
             m.summaries[s].q1.push(0)
             m.summaries[s].min.push(Infinity)
@@ -775,13 +808,15 @@ function init_summaries() {
 function calculate_summaries() {
   viewid = _s.region_type + _s.shapes + _s.scale + _s.variable
   const all_regions = _s.region_type === 'All',
-    l = locations[_s.shapes]
+    l = locations[_s.shapes],
+    ny = meta.years.length
   var q1,
     q3,
     id,
     y,
     n,
     m,
+    e,
     dim,
     mo,
     ms,
@@ -803,20 +838,25 @@ function calculate_summaries() {
       for (id in ds)
         if (Object.prototype.hasOwnProperty.call(ds, id) && (all_regions || _s.region_type === l[id].type)) {
           dim = ds[id][measure]
-          for (y = meta.years.length; y--; ) {
+          e = rank_rows[id] = document.createElement('tr')
+          e.appendChild(document.createElement('td'))
+          e.lastElementChild.innerText = l[id].name
+          for (y = 0; y < ny; y++) {
+            e.appendChild(document.createElement('td'))
+            e.lastElementChild.appendChild(document.createElement('span'))
+            e.lastElementChild.lastElementChild.className = 'value'
+            e.lastElementChild.appendChild(document.createElement('div'))
+            e.lastElementChild.lastElementChild.className = 'rank-bar'
+            if (!mi) mo[y].push([id, dim[y]])
             if (typeof dim[y] === 'number') {
-              if (n[y]) {
-                n[y]++
-              } else {
-                n[y] = 1
-              }
+              if (!n[y]) n[y] = 0
               ms.mean[y] += dim[y]
-              if (!mi) mo[y].push([id, dim[y]])
+              n[y]++
             }
           }
         }
       if (!mi)
-        for (y = meta.years.length; y--; ) {
+        for (y = 0; y < ny; y++) {
           mo[y].sort(function sf(a, b) {
             return a[1] - b[1]
           })
@@ -824,9 +864,9 @@ function calculate_summaries() {
       mo = m.order[_s.shapes]
       ms = m.summaries[_s.shapes]
       if (mi) {
-        for (y = meta.years.length; y--; ) ms.mean[y] = n[y] ? ms.mean[y] / n[y] : 0
+        for (y = 0; y < ny; y++) ms.mean[y] = n[y] ? ms.mean[y] / n[y] : 0
       } else {
-        for (y = meta.years.length; y--; ) {
+        for (y = 0; y < ny; y++) {
           if (n[y]) {
             q1 = quantile_inds(0.25, n[y])
             q3 = quantile_inds(0.75, n[y])
@@ -844,11 +884,13 @@ function calculate_summaries() {
             ms.q1[y] = 0.25
             ms.min[y] = 0
           }
-          ms.norm_mean[y] = (ms.mean[y] - ms.min[y]) / (ms.max[y] - ms.min[y])
+          ms.norm_median[y] = (ms.median[y] - ms.min[y]) / (ms.max[y] - ms.min[y])
         }
       }
     }
 }
+
+function aggregate() {}
 
 function queue_init() {
   if (document.readyState !== 'loading') {
@@ -861,15 +903,19 @@ function queue_init() {
 }
 
 function load_data(url) {
-  $.ajax(url, {
-    success: function (d) {
-      data = JSON.parse(d)
-      queue_init()
-    },
-    error: function (e) {
-      console.log('load_data failed', e)
-    },
-  })
+  var f = new XMLHttpRequest()
+  f.onreadystatechange = function () {
+    if (f.readyState === 4) {
+      if (f.status === 200) {
+        data = JSON.parse(f.responseText)
+        queue_init()
+      } else {
+        console.log('load_data failed', f.responseText)
+      }
+    }
+  }
+  f.open('GET', url, true)
+  f.send()
 }
 
 load_data(data_url)

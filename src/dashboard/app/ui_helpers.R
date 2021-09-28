@@ -20,8 +20,21 @@ output_info <- function(title = "Overall", message = "", variable = h3("Variable
   )
 }
 
+output_rank <- function(){
+  div(
+    id = "rank_table",
+    class = "auto-output rank-table",
+    "auto-type" = "rank",
+    tags$table(
+      class = "table",
+      tags$thead(),
+      tags$tbody()
+    )
+  )
+}
+
 input_slider <- function(label, range, stepsize = 1, ..., variable = NULL, default = NULL,
-                         display = options, id = make_id(label), ticks = "true", skin = "square") {
+  display = options, id = make_id(label)) {
   if (missing(default)) default <- range[length(range)]
   div(
     class = "slider-wrapper",
@@ -32,21 +45,17 @@ input_slider <- function(label, range, stepsize = 1, ..., variable = NULL, defau
       name = id,
       `auto-type` = "slider",
       variable = variable,
-      `data-type` = "single",
-      ...,
-      `data-from` = default,
-      `data-min` = range[1],
-      `data-max` = range[2],
-      `data-step` = stepsize,
-      `data-grid` = ticks,
-      `data-skin` = skin,
-      `data-prettify-enabled` = "false"
+      type = "range",
+      min = range[1],
+      max = range[2],
+      step = stepsize,
+      value = default
     )
   )
 }
 
 input_select <- function(label, options, ..., variable = NULL, default = NULL,
-                         display = options, id = make_id(label), multi = FALSE, reset_button = FALSE) {
+  display = options, id = make_id(label), multi = FALSE, reset_button = FALSE) {
   if (missing(default)) default <- options[1]
   list(
     tags$label(label, `for` = id),
@@ -73,7 +82,7 @@ input_select <- function(label, options, ..., variable = NULL, default = NULL,
 }
 
 input_buttongroup <- function(label, options, ..., variable = NULL, default = NULL,
-                              display = options, id = make_id(label)) {
+  display = options, id = make_id(label)) {
   if (missing(default)) default <- options[1]
   list(
     tags$label(label, `for` = id),
@@ -101,7 +110,7 @@ input_buttongroup <- function(label, options, ..., variable = NULL, default = NU
 }
 
 input_radio <- function(label, options, ..., variable = NULL, default = NULL,
-                        display = options, id = make_id(label), inline = TRUE) {
+  display = options, id = make_id(label), inline = TRUE) {
   if (missing(default)) default <- options[1]
   div(
     tags$label(`for` = id, label),

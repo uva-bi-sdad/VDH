@@ -1,5 +1,4 @@
 h1, h2{margin-top: .5rem}
-.sidebar label{margin: .7em 0 .2em 0}
 label.form-check-label{margin: 0}
 .leaflet-container{background: #fff}
 #year label, #year input{cursor: pointer}
@@ -12,11 +11,23 @@ label.form-check-label{margin: 0}
 .legend td:last-of-type{text-align: right}
 .legend-scale{width: 100%; height: 30px}
 .legend-scale span{height: 100%; width: 16.667%; display: inline-block}
-.table td{padding: .3em 0; text-align: right}
-.table td:first-of-type{text-align: left}
+.table th{padding: .5em 0; text-align: right}
+.table th:first-of-type{text-align: left}
+.table td{padding: 0; text-align: right}
+.table td:first-of-type, .table th:first-of-type{
+  text-align: left; width: 175px; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis
+}
+.rank-container{max-width: 520px}
+.rank-table{overflow-y: auto}
+.rank-table td, .rank-table th{width: 61px}
+.rank-table th{border-top: none}
+.rank-table td{height: 24px; border-top: none}
+.rank-table .value{padding: 0 .1em 0 0}
+.rank-bar{width: .5em; display: inline-block}
 .text-display select, .text-display h3{font-size: 1.5em; font-weight: bold}
 .text-display h3{margin: 2.45em 0 1.135em .55em}
-.col, .col-2 .row{min-width: 100px}
+.col, .col-2 .row{min-width: 100px; height: 100%}
 .col-2{padding: .3em}
 .row{margin-right: 0; margin-left: 0}
 .dashboard-page-wrapper > p{margin: 0}
@@ -28,10 +39,11 @@ label.form-check-label{margin: 0}
 .input-group-close select{border-top-left-radius: 0; border-bottom-left-radius: 0}
 .input-group-close .col{padding: 0}
 .input-group-close .col:first-of-type{max-width: 155px}
-.info-pane{max-width: 460px}
+.info-pane{max-width: 290px}
 .menu-group-label{font-size: 1.7rem; font-weight: 500; margin: 0}
 .btn-link{color: #9600A6}
 .btn-default{background-color: #d7d7d7}
 .slider-wrapper{width: 100%; padding: 0 1.5em 0 .5em}
 .irs{width: 100%}
 .irs-grid-text{color: #515151 !important}
+.value{font-family: monospace}

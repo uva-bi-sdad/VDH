@@ -177,7 +177,7 @@ map <- leaflet(options = leafletOptions(attributionControl = FALSE, zoomControl 
   addControl(tags$table(
     class = "legend",
     tags$tr(tags$td(colspan = 3, class = "legend-scale")),
-    tags$tr(tags$td("Below"), tags$td("State Mean"), tags$td("Above"))
+    tags$tr(tags$td("Below"), tags$td("State Median"), tags$td("Above"))
   ), "bottomright", className = "") |>
   setView(-79.5, 38, zoom = 7)
 
@@ -243,4 +243,11 @@ plot_ly(
     yaxis = list(fixedrange = TRUE)
   ) |>
   config(displayModeBar = FALSE, showTips = FALSE)
+```
+
+Column {.rank-container}
+-
+### Rankings
+```{r}
+output_rank()
 ```
