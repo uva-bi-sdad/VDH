@@ -447,6 +447,14 @@ DBI::dbDisconnect(con)
 # PREPARE HEALTH DISTRICT LEVEL
 health_access_district <- setDT(readRDS("data/catchment_areas/db/health_access_health_district.rds"))
 
+con <- get_db_conn()
+va_hd_counties <- st_read(con, c("dc_health_behavior_diet", "va_hd_vhd_2021_virginia_health_districts"))
+va_hd <- setDT(unique(va_hd_counties[, c("health_district", "fid")]))
+va_hd[health_district == "Pittsylvania-Danville", health_district := "Pittsylvania/Danville"]
+va_hd[health_district == "Rappahannock Rapidan", health_district := "Rappahannock/Rapidan"]
+
+
+
 va_hd_sdad_2021_primary_care_acccess_scores <- health_access_district[,.(geoid = "", 
                                                                       region_type = "health district", 
                                                                       region_name = HealthDistrict, 
@@ -457,6 +465,12 @@ va_hd_sdad_2021_primary_care_acccess_scores <- health_access_district[,.(geoid =
                                                                       primcare_e2sfca = `2sfca_primcare`,
                                                                       primcare_3sfca = `3sfca_primcare`)]
 
+va_hd_sdad_2021_primary_care_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
+va_hd_sdad_2021_primary_care_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
+
+va_hd_sdad_2021_primary_care_acccess_scores <- merge(va_hd_sdad_2021_primary_care_acccess_scores, va_hd, by.x = "region_name", by.y = "health_district", all.x = TRUE)
+
+va_hd_sdad_2021_primary_care_acccess_scores[, geoid := fid]
 
 va_hd_sdad_2021_primary_care_acccess_scores <-
   melt(
@@ -495,6 +509,13 @@ va_hd_sdad_2021_obgyn_acccess_scores <- health_access_district[,.(geoid = "",
                                                                obgyn_e2sfca = `2sfca_obgyn`,
                                                                obgyn_3sfca = `3sfca_obgyn`)]
 
+va_hd_sdad_2021_obgyn_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
+va_hd_sdad_2021_obgyn_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
+
+va_hd_sdad_2021_obgyn_acccess_scores <- merge(va_hd_sdad_2021_obgyn_acccess_scores, va_hd, by.x = "region_name", by.y = "health_district", all.x = TRUE)
+
+va_hd_sdad_2021_obgyn_acccess_scores[, geoid := fid]
+
 va_hd_sdad_2021_obgyn_acccess_scores <-
   melt(
     va_hd_sdad_2021_obgyn_acccess_scores,
@@ -532,6 +553,13 @@ va_hd_sdad_2021_dentist_acccess_scores <- health_access_district[,.(geoid = "",
                                                                  dent_e2sfca = `2sfca_dent`,
                                                                  dent_3sfca = `3sfca_dent`)]
 
+va_hd_sdad_2021_dentist_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
+va_hd_sdad_2021_dentist_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
+
+va_hd_sdad_2021_dentist_acccess_scores <- merge(va_hd_sdad_2021_dentist_acccess_scores, va_hd, by.x = "region_name", by.y = "health_district", all.x = TRUE)
+
+va_hd_sdad_2021_dentist_acccess_scores[, geoid := fid]
+
 va_hd_sdad_2021_dentist_acccess_scores <-
   melt(
     va_hd_sdad_2021_dentist_acccess_scores,
@@ -558,22 +586,39 @@ con <- get_db_conn()
 dc_dbWriteTable(con, "dc_health_behavior_diet", "va_hd_sdad_2021_dentist_acccess_scores", va_hd_sdad_2021_dentist_acccess_scores)
 DBI::dbDisconnect(con)
 
-va_hd_cts <- fread("src/va_health_district_counties.csv")
-va_hd_cts[!locality %like% "city$", locality := paste0(locality, " County")]
-va_hd_cts[, locality := paste0(locality, ", Virginia")]
+
+# va_hd_cts <- fread("src/va_health_district_counties.csv")
+# va_hd_cts[!locality %like% "city$", locality := paste0(locality, " County")]
+# va_hd_cts[, locality := paste0(locality, ", Virginia")]
+
 
 
 con <- get_db_conn()
+va_hd_cts <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hd_vhd_2021_virginia_health_districts"), row.names = FALSE))
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64 <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_ct_acs5_2015_2019_no_health_insurance_19_to_64"), row.names = FALSE))
 DBI::dbDisconnect(con)
 
-mrg <- merge(va_hd_cts, va_ct_acs5_2015_2019_no_health_insurance_19_to_64, by.x = "locality", by.y = "region_name")
-va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- mrg[, .(no_hlth_ins_pct = mean(value)), c("vdh_health_district", "year")]
+va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, region_name := tools::toTitleCase(region_name)]
+
+va_hd_cts[name_county %in% c("Alexandria", "Salem","Covington", "Charlottesville","Buena Vista", "Lexington","Staunton", "Waynesboro",
+                             "Harrisonburg", "Lynchburg","Chesapeake", "Emporia","Petersburg", "Colonial Heights","Hopewell", "Falls Church",
+                             "Hampton", "Winchester", "Bristol", "Galax", "Radford", "Norfolk", "Williamsburg", "Newport News", "Poquoson",
+                             "Manassass Park", "Fredericksburg", "Virginia Beach", "Martinsville"), name_county := paste0(name_county, " city")]
+
+va_hd_cts[name_county == "James City", name_county := "James City County"]
+va_hd_cts[!name_county %like% "County$" & !name_county %ilike% "city", name_county := paste0(name_county, " County")]
+va_hd_cts[name_county %ilike% "city$", name_county := tools::toTitleCase(name_county)]
+va_hd_cts[name_county %ilike% "city$", name_county := paste0(name_county, ", Virginia")]
+va_hd_cts$geometry <- NULL
+
+
+mrg <- merge(va_hd_cts, va_ct_acs5_2015_2019_no_health_insurance_19_to_64, by.x = "name_county", by.y = "region_name")
+va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- mrg[, .(no_hlth_ins_pct = mean(value)), c("health_district", "fid", "year")]
 
 va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- 
-  va_hd_acs5_2015_2019_no_health_insurance_19_to_64[, .(geoid = "", 
+  va_hd_acs5_2015_2019_no_health_insurance_19_to_64[, .(geoid = fid, 
                                                       region_type = "health district", 
-                                                      region_name = vdh_health_district, 
+                                                      region_name = health_district, 
                                                       year = as.integer(year), 
                                                       measure = "no_hlth_ins_pct", 
                                                       value = no_hlth_ins_pct,
@@ -675,4 +720,31 @@ write.csv(df, "data/dc_webapp/health__dentist_acccess_scores.csv", row.names = F
 
 df <- DBI::dbReadTable(con, c("dc_webapp", "health__no_health_insurance_19_to_64"))
 write.csv(df, "data/dc_webapp/health__no_health_insurance_19_to_64.csv", row.names = FALSE)
+DBI::dbDisconnect(con)
+
+
+
+# Write new CSVs
+con <- get_db_conn()
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_primary_care_acccess_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_primary_care_acccess_scores.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_obgyn_access_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_obgyn_access_scores.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_dentist_access_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_dentist_access_scores.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64"))
+write.csv(df, "data/dc_webapp/va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_ct_chr_2015_2021_preventable_hospitalizations"))
+write.csv(df, "data/dc_webapp/va_ct_chr_2015_2021_preventable_hospitalizations.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_education_training", "va_hdcttr_sdad_2021_daycare_services_access_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_daycare_services_access_scores.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_webapp", "category_measures"))
+write.csv(df, "data/dc_webapp/category_measures.csv", row.names = FALSE)
+
 DBI::dbDisconnect(con)
