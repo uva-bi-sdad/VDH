@@ -1,5 +1,3 @@
-library(data.table)
-
 options(scipen = 999)
 
 # PREAPRE COUNTY LEVEL
@@ -76,14 +74,14 @@ va_ct_sdad_2021_obgyn_acccess_scores[, year := as.integer(year)]
 dc_dbWriteTable(con, "dc_health_behavior_diet", "va_ct_sdad_2021_obgyn_acccess_scores", va_ct_sdad_2021_obgyn_acccess_scores)
 
 va_ct_sdad_2021_dentist_acccess_scores <- health_access_county[,.(geoid, 
-                                                                region_type = "county", 
-                                                                region_name = county, 
-                                                                "year" = year,
-                                                                dent_cnt = num_dent,
-                                                                dent_fca = fca_dent,
-                                                                dent_2sfca = `2sfca_dent`,
-                                                                dent_e2sfca = `2sfca_dent`,
-                                                                dent_3sfca = `3sfca_dent`)]
+                                                                  region_type = "county", 
+                                                                  region_name = county, 
+                                                                  "year" = year,
+                                                                  dent_cnt = num_dent,
+                                                                  dent_fca = fca_dent,
+                                                                  dent_2sfca = `2sfca_dent`,
+                                                                  dent_e2sfca = `2sfca_dent`,
+                                                                  dent_3sfca = `3sfca_dent`)]
 
 va_ct_sdad_2021_dentist_acccess_scores <-
   melt(
@@ -145,10 +143,10 @@ va_ct_acs5_2015_2019_no_health_insurance_19_to_64 <- rbindlist(list(no_hlth_insu
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, region_type := "county"]
 
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64 <- va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, .(geoid = GEOID,
-                                                      region_type,
-                                                      region_name = NAME,
-                                                      "year" = year,
-                                                      no_hlth_ins_pct)]
+                                                                                                           region_type,
+                                                                                                           region_name = NAME,
+                                                                                                           "year" = year,
+                                                                                                           no_hlth_ins_pct)]
 
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, measure := "no_hlth_ins_pct"]
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, measure_type := "percent"]
@@ -203,15 +201,15 @@ write.csv(df, "data/dc_webapp/health__no_health_insurance_19_to_64.csv", row.nam
 health_access_tract <- setDT(readRDS("data/catchment_areas/db/health_access_tract.rds"))
 
 va_tr_sdad_2021_primary_care_acccess_scores <- health_access_tract[,.(geoid = as.character(GEOID), 
-                                                                         region_type = "tract", 
-                                                                       region_name = ctract, 
-                                                                       "year" = year,
-                                                                       primcare_cnt = round(as.numeric(prim_care_num)),
-                                                                       primcare_pop_cnt = pop,
-                                                                       primcare_fca = fca_primcare,
-                                                                       primcare_2sfca = `2sfca_primcare`,
-                                                                       primcare_e2sfca = `2sfca_primcare`,
-                                                                       primcare_3sfca = `3sfca_primcare`)]
+                                                                      region_type = "tract", 
+                                                                      region_name = ctract, 
+                                                                      "year" = year,
+                                                                      primcare_cnt = round(as.numeric(prim_care_num)),
+                                                                      primcare_pop_cnt = pop,
+                                                                      primcare_fca = fca_primcare,
+                                                                      primcare_2sfca = `2sfca_primcare`,
+                                                                      primcare_e2sfca = `2sfca_primcare`,
+                                                                      primcare_3sfca = `3sfca_primcare`)]
 
 
 va_tr_sdad_2021_primary_care_acccess_scores <-
@@ -242,15 +240,15 @@ dc_dbWriteTable(con, "dc_health_behavior_diet", "va_tr_sdad_2021_primary_care_ac
 DBI::dbDisconnect(con)
 
 va_tr_sdad_2021_obgyn_acccess_scores <- health_access_tract[,.(geoid = as.character(GEOID), 
-                                                                region_type = "tract", 
-                                                                region_name = ctract, 
-                                                                "year" = year,
-                                                                obgyn_cnt = round(as.numeric(obgyn_num)),
-                                                                obgyn_pop_cnt = pop_obgyn,
-                                                                obgyn_fca = fca_obgyn,
-                                                                obgyn_2sfca = `2sfca_obgyn`,
-                                                                obgyn_e2sfca = `2sfca_obgyn`,
-                                                                obgyn_3sfca = `3sfca_obgyn`)]
+                                                               region_type = "tract", 
+                                                               region_name = ctract, 
+                                                               "year" = year,
+                                                               obgyn_cnt = round(as.numeric(obgyn_num)),
+                                                               obgyn_pop_cnt = pop_obgyn,
+                                                               obgyn_fca = fca_obgyn,
+                                                               obgyn_2sfca = `2sfca_obgyn`,
+                                                               obgyn_e2sfca = `2sfca_obgyn`,
+                                                               obgyn_3sfca = `3sfca_obgyn`)]
 
 va_tr_sdad_2021_obgyn_acccess_scores <-
   melt(
@@ -281,15 +279,15 @@ DBI::dbDisconnect(con)
 
 
 va_tr_sdad_2021_dentist_acccess_scores <- health_access_tract[,.(geoid = as.character(GEOID), 
-                                                               region_type = "tract", 
-                                                               region_name = ctract, 
-                                                               "year" = year,
-                                                               dent_cnt = round(as.numeric(dent_num)),
-                                                               dent_pop_cnt = pop_dent,
-                                                               dent_fca = fca_dent,
-                                                               dent_2sfca = `2sfca_dent`,
-                                                               dent_e2sfca = `2sfca_dent`,
-                                                               dent_3sfca = `3sfca_dent`)]
+                                                                 region_type = "tract", 
+                                                                 region_name = ctract, 
+                                                                 "year" = year,
+                                                                 dent_cnt = round(as.numeric(dent_num)),
+                                                                 dent_pop_cnt = pop_dent,
+                                                                 dent_fca = fca_dent,
+                                                                 dent_2sfca = `2sfca_dent`,
+                                                                 dent_e2sfca = `2sfca_dent`,
+                                                                 dent_3sfca = `3sfca_dent`)]
 
 va_tr_sdad_2021_dentist_acccess_scores <-
   melt(
@@ -458,14 +456,14 @@ va_hd[health_district == "Rappahannock Rapidan", health_district := "Rappahannoc
 
 
 va_hd_sdad_2021_primary_care_acccess_scores <- health_access_district[,.(geoid = "", 
-                                                                      region_type = "health district", 
-                                                                      region_name = HealthDistrict, 
-                                                                      "year" = year,
-                                                                      primcare_cnt = round(as.numeric(num_primcare)),
-                                                                      primcare_fca = fca_primcare,
-                                                                      primcare_2sfca = `2sfca_primcare`,
-                                                                      primcare_e2sfca = `2sfca_primcare`,
-                                                                      primcare_3sfca = `3sfca_primcare`)]
+                                                                         region_type = "health district", 
+                                                                         region_name = HealthDistrict, 
+                                                                         "year" = year,
+                                                                         primcare_cnt = round(as.numeric(num_primcare)),
+                                                                         primcare_fca = fca_primcare,
+                                                                         primcare_2sfca = `2sfca_primcare`,
+                                                                         primcare_e2sfca = `2sfca_primcare`,
+                                                                         primcare_3sfca = `3sfca_primcare`)]
 
 va_hd_sdad_2021_primary_care_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
 va_hd_sdad_2021_primary_care_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
@@ -502,14 +500,14 @@ DBI::dbDisconnect(con)
 
 
 va_hd_sdad_2021_obgyn_acccess_scores <- health_access_district[,.(geoid = "", 
-                                                               region_type = "health district", 
-                                                               region_name = HealthDistrict, 
-                                                               "year" = year,
-                                                               obgyn_cnt = round(as.numeric(num_obgyn)),
-                                                               obgyn_fca = fca_obgyn,
-                                                               obgyn_2sfca = `2sfca_obgyn`,
-                                                               obgyn_e2sfca = `2sfca_obgyn`,
-                                                               obgyn_3sfca = `3sfca_obgyn`)]
+                                                                  region_type = "health district", 
+                                                                  region_name = HealthDistrict, 
+                                                                  "year" = year,
+                                                                  obgyn_cnt = round(as.numeric(num_obgyn)),
+                                                                  obgyn_fca = fca_obgyn,
+                                                                  obgyn_2sfca = `2sfca_obgyn`,
+                                                                  obgyn_e2sfca = `2sfca_obgyn`,
+                                                                  obgyn_3sfca = `3sfca_obgyn`)]
 
 va_hd_sdad_2021_obgyn_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
 va_hd_sdad_2021_obgyn_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
@@ -546,14 +544,14 @@ DBI::dbDisconnect(con)
 
 
 va_hd_sdad_2021_dentist_acccess_scores <- health_access_district[,.(geoid = "", 
-                                                                 region_type = "health district", 
-                                                                 region_name = HealthDistrict, 
-                                                                 "year" = year,
-                                                                 dent_cnt = round(as.numeric(num_dent)),
-                                                                 dent_fca = fca_dent,
-                                                                 dent_2sfca = `2sfca_dent`,
-                                                                 dent_e2sfca = `2sfca_dent`,
-                                                                 dent_3sfca = `3sfca_dent`)]
+                                                                    region_type = "health district", 
+                                                                    region_name = HealthDistrict, 
+                                                                    "year" = year,
+                                                                    dent_cnt = round(as.numeric(num_dent)),
+                                                                    dent_fca = fca_dent,
+                                                                    dent_2sfca = `2sfca_dent`,
+                                                                    dent_e2sfca = `2sfca_dent`,
+                                                                    dent_3sfca = `3sfca_dent`)]
 
 va_hd_sdad_2021_dentist_acccess_scores[region_name=="Rappahannock Area", region_name := "Rappahannock"]
 va_hd_sdad_2021_dentist_acccess_scores[region_name=="Roanoke City", region_name := "Roanoke"]
@@ -593,8 +591,7 @@ DBI::dbDisconnect(con)
 # va_hd_cts[!locality %like% "city$", locality := paste0(locality, " County")]
 # va_hd_cts[, locality := paste0(locality, ", Virginia")]
 
-
-
+library(data.table)
 con <- get_db_conn()
 va_hd_cts <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hd_vhd_2021_virginia_health_districts"), row.names = FALSE))
 va_ct_acs5_2015_2019_no_health_insurance_19_to_64 <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_ct_acs5_2015_2019_no_health_insurance_19_to_64"), row.names = FALSE))
@@ -621,16 +618,52 @@ va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- mrg[, .(no_hlth_ins_pct = m
 
 va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- 
   va_hd_acs5_2015_2019_no_health_insurance_19_to_64[, .(geoid = fid, 
-                                                      region_type = "health district", 
-                                                      region_name = health_district, 
-                                                      year = as.integer(year), 
-                                                      measure = "no_hlth_ins_pct", 
-                                                      value = no_hlth_ins_pct,
-                                                      measure_type = "percent")]
+                                                        region_type = "health district", 
+                                                        region_name = health_district, 
+                                                        year = as.integer(year), 
+                                                        measure = "no_hlth_ins_pct", 
+                                                        value = no_hlth_ins_pct,
+                                                        measure_type = "percent")]
 
 con <- get_db_conn()
 dc_dbWriteTable(con, "dc_health_behavior_diet", "va_hd_acs5_2015_2019_no_health_insurance_19_to_64", va_hd_acs5_2015_2019_no_health_insurance_19_to_64)
 DBI::dbDisconnect(con)
+
+
+# con <- get_db_conn()
+# va_hd_cts <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hd_vhd_2021_virginia_health_districts"), row.names = FALSE))
+# va_ct_acs5_2015_2019_no_health_insurance_19_to_64 <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_ct_acs5_2015_2019_no_health_insurance_19_to_64"), row.names = FALSE))
+# DBI::dbDisconnect(con)
+# 
+# va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, region_name := tools::toTitleCase(region_name)]
+# 
+# va_hd_cts[name_county %in% c("Alexandria", "Salem","Covington", "Charlottesville","Buena Vista", "Lexington","Staunton", "Waynesboro",
+#                              "Harrisonburg", "Lynchburg","Chesapeake", "Emporia","Petersburg", "Colonial Heights","Hopewell", "Falls Church",
+#                              "Hampton", "Winchester", "Bristol", "Galax", "Radford", "Norfolk", "Williamsburg", "Newport News", "Poquoson",
+#                              "Manassass Park", "Fredericksburg", "Virginia Beach", "Martinsville"), name_county := paste0(name_county, " city")]
+# 
+# va_hd_cts[name_county == "James City", name_county := "James City County"]
+# va_hd_cts[!name_county %like% "County$" & !name_county %ilike% "city", name_county := paste0(name_county, " County")]
+# va_hd_cts[name_county %ilike% "city$", name_county := tools::toTitleCase(name_county)]
+# va_hd_cts[name_county %ilike% "city$", name_county := paste0(name_county, ", Virginia")]
+# va_hd_cts$geometry <- NULL
+# 
+# 
+# mrg <- merge(va_hd_cts, va_ct_acs5_2015_2019_no_health_insurance_19_to_64, by.x = "name_county", by.y = "region_name")
+# va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- mrg[, .(no_hlth_ins_pct = mean(value)), c("health_district", "fid", "year")]
+# 
+# va_hd_acs5_2015_2019_no_health_insurance_19_to_64 <- 
+#   va_hd_acs5_2015_2019_no_health_insurance_19_to_64[, .(geoid = fid, 
+#                                                       region_type = "health district", 
+#                                                       region_name = health_district, 
+#                                                       year = as.integer(year), 
+#                                                       measure = "no_hlth_ins_pct", 
+#                                                       value = no_hlth_ins_pct,
+#                                                       measure_type = "percent")]
+# 
+# con <- get_db_conn()
+# dc_dbWriteTable(con, "dc_health_behavior_diet", "va_hd_acs5_2015_2019_no_health_insurance_19_to_64", va_hd_acs5_2015_2019_no_health_insurance_19_to_64)
+# DBI::dbDisconnect(con)
 
 
 # CREATE VIEWS
@@ -692,9 +725,12 @@ DBI::dbSendQuery(con, sql)
 DBI::dbSendQuery(con, "ALTER VIEW dc_webapp.health__dentist_acccess_scores OWNER TO data_commons")
 DBI::dbDisconnect(con)
 
-sql <- "DROP VIEW IF EXISTS dc_webapp.health__no_health_insurance_19_to_64;
-        CREATE VIEW dc_webapp.health__no_health_insurance_19_to_64 AS 
-        SELECT * FROM
+
+
+sql <- "DROP TABLE IF EXISTS dc_health_behavior_diet.va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64;
+        SELECT *
+        INTO dc_health_behavior_diet.va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64
+        FROM
         (SELECT * 
         FROM dc_health_behavior_diet.va_ct_acs5_2015_2019_no_health_insurance_19_to_64
         UNION
@@ -708,24 +744,8 @@ sql <- "DROP VIEW IF EXISTS dc_webapp.health__no_health_insurance_19_to_64;
         ORDER BY region_name, year"
 con <- get_db_conn()
 DBI::dbSendQuery(con, sql)
-DBI::dbSendQuery(con, "ALTER VIEW dc_webapp.health__no_health_insurance_19_to_64 OWNER TO data_commons")
+DBI::dbSendQuery(con, "ALTER TABLE dc_health_behavior_diet.va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64 OWNER TO data_commons")
 DBI::dbDisconnect(con)
-
-# Write CSVs
-con <- get_db_conn()
-df <- DBI::dbReadTable(con, c("dc_webapp", "health__primary_care_acccess_scores"))
-write.csv(df, "data/dc_webapp/health__primary_care_acccess_scores.csv", row.names = FALSE)
-
-df <- DBI::dbReadTable(con, c("dc_webapp", "health__obgyn_acccess_scores"))
-write.csv(df, "data/dc_webapp/health__obgyn_acccess_scores.csv", row.names = FALSE)
-
-df <- DBI::dbReadTable(con, c("dc_webapp", "health__dentist_acccess_scores"))
-write.csv(df, "data/dc_webapp/health__dentist_acccess_scores.csv", row.names = FALSE)
-
-df <- DBI::dbReadTable(con, c("dc_webapp", "health__no_health_insurance_19_to_64"))
-write.csv(df, "data/dc_webapp/health__no_health_insurance_19_to_64.csv", row.names = FALSE)
-DBI::dbDisconnect(con)
-
 
 
 # Write new CSVs
