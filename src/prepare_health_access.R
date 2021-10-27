@@ -1,3 +1,5 @@
+library(data.table)
+
 options(scipen = 999)
 
 # PREAPRE COUNTY LEVEL
@@ -603,12 +605,14 @@ va_ct_acs5_2015_2019_no_health_insurance_19_to_64[, region_name := tools::toTitl
 va_hd_cts[name_county %in% c("Alexandria", "Salem","Covington", "Charlottesville","Buena Vista", "Lexington","Staunton", "Waynesboro",
                              "Harrisonburg", "Lynchburg","Chesapeake", "Emporia","Petersburg", "Colonial Heights","Hopewell", "Falls Church",
                              "Hampton", "Winchester", "Bristol", "Galax", "Radford", "Norfolk", "Williamsburg", "Newport News", "Poquoson",
-                             "Manassass Park", "Fredericksburg", "Virginia Beach", "Martinsville"), name_county := paste0(name_county, " city")]
+                             "Manassas Park", "Fredericksburg", "Virginia Beach", "Martinsville", 
+                             "Portsmouth", "Norton", "Danville", "Suffolk"), name_county := paste0(name_county, " city")]
 
 va_hd_cts[name_county == "James City", name_county := "James City County"]
+va_hd_cts[name_county == "Charles City", name_county := "Charles City County"]
 va_hd_cts[!name_county %like% "County$" & !name_county %ilike% "city", name_county := paste0(name_county, " County")]
 va_hd_cts[name_county %ilike% "city$", name_county := tools::toTitleCase(name_county)]
-va_hd_cts[name_county %ilike% "city$", name_county := paste0(name_county, ", Virginia")]
+va_hd_cts[, name_county := paste0(name_county, ", Virginia")]
 va_hd_cts$geometry <- NULL
 
 
