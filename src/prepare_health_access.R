@@ -750,14 +750,17 @@ DBI::dbDisconnect(con)
 
 # Write new CSVs
 con <- get_db_conn()
-df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_primary_care_acccess_scores"))
-write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_primary_care_acccess_scores.csv", row.names = FALSE)
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_primary_care_access_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_primary_care_access_scores.csv", row.names = FALSE)
 
 df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_obgyn_access_scores"))
 write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_obgyn_access_scores.csv", row.names = FALSE)
 
 df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_dentist_access_scores"))
 write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_dentist_access_scores.csv", row.names = FALSE)
+
+df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_sdad_2021_pediatrics_access_scores"))
+write.csv(df, "data/dc_webapp/va_hdcttr_sdad_2021_pediatrics_access_scores.csv", row.names = FALSE)
 
 df <- DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64"))
 write.csv(df, "data/dc_webapp/va_hdcttr_acs5_2015_2019_no_health_insurance_19_to_64.csv", row.names = FALSE)
@@ -772,3 +775,34 @@ df <- DBI::dbReadTable(con, c("dc_webapp", "category_measures"))
 write.csv(df, "data/dc_webapp/category_measures.csv", row.names = FALSE)
 
 DBI::dbDisconnect(con)
+
+
+
+con <- get_db_conn()
+category_measures <- DBI::dbReadTable(con, c("dc_webapp", "category_measures"))
+DBI::dbDisconnect(con)
+
+category_measures[category_measures$measure=="primcare_e2sfca",]$measure <- "prim_e2sfca"
+category_measures[category_measures$measure=="primcare_cnt",]$measure <- "prim_cnt"
+category_measures[category_measures$measure_table=="dc_health_behavior_diet.va_hdcttr_sdad_2021_primary_care_acccess_scores",]$measure_table <- "dc_health_behavior_diet.va_hdcttr_sdad_2021_primary_care_access_scores"
+
+new_cat_meas <- data.frame(
+  category = c("Health", "Health", "Broadband", "Broadband"),
+  measure = c("ped_e2sfca", "ped_cnt", "perc_have_computer", "perc_have_internet_access"),
+  measure_table = c("dc_health_behavior_diet.va_hdcttr_sdad_2021_pediatrics_access_scores", 
+                    "dc_health_behavior_diet.va_hdcttr_sdad_2021_pediatrics_access_scores",
+                    "dc_digital_communications.va_hdcttr_acs5_2019_have_computer",
+                    "dc_digital_communications.va_hdcttr_acs5_2019_have_internet")
+)
+category_measures <- rbind(category_measures, new_cat_meas)
+category_measures <- category_measures[order(category_measures$category),]
+
+con <- get_db_conn()
+DBI::dbSendQuery(con, "DROP TABLE dc_webapp.category_measures")
+dc_dbWriteTable(con, "dc_webapp", "category_measures", category_measures)
+DBI::dbDisconnect(con)
+
+write.csv(category_measures, "data/dc_webapp/category_measures.csv")
+
+
+

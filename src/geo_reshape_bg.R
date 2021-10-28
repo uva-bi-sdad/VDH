@@ -75,3 +75,47 @@ wav_hills_demographics
 
 # Plot Waverly Hills Parcels
 plot(va_arl_housing_units_wavhills_bgs[va_arl_housing_units_wavhills_bgs$RPC_Master %in% wav_hills_parcels$RPC_Master, c("Unit_Type")])
+
+
+wav_hills_parcels_sf <- sf::st_as_sf(wav_hills_parcels)
+wav_hills_parcels_sf <- st_transform(wav_hills_parcels_sf, crs = 4326)
+
+plot(st_geometry(arl_bgs_wgs84_wavhills))
+
+plot(wav_hills_parcels_sf[,c("prcl_blk")])
+plot(wav_hills_parcels_sf[,c("Total_Units")])
+plot(st_geometry(wav_hills_parcels_sf))
+
+plot(st_geometry(intersect))
+plot(st_geometry(arl_bgs_wgs84_wavhills), border = 2, lwd = 3, add = T)
+plot(wav_hills_parcels_sf[,c("COUNTYFP")], add = T)
+
+
+plot(wav_hills_parcels_sf[,c("prcl_blk")])
+plot(st_geometry(arl_bgs_wgs84_wavhills), border = 2, lwd = 3, add = T)
+
+
+
+
+plot(st_geometry(arl_bgs_wgs84_wavhills), border = 2, lwd = 3)
+plot(st_geometry(intersect), add = T)
+plot(st_geometry(arl_civic_assoc_wgs84_wavhills), add = T, border = 3, lwd = 3)
+plot(va_arl_housing_units_wavhills_bgs[, c("Total_Units")], key.pos = 4, add = T)
+plot(st_geometry(arl_civic_assoc_wgs84_wavhills), add = T, border = 4, lwd = 4)
+
+
+plot(wav_hills_parcels_sf[,c("Total_Units")])
+
+
+
+colnms <- colnames(wav_hills_parcels_sf)
+colnms[colnms == "prcl_blk"] <- "prcl_afr_amer"
+colnames(wav_hills_parcels_sf) <- colnms
+plot(wav_hills_parcels_sf[,c("prcl_afr_amer")])
+
+
+plot(wav_hills_parcels_sf[,c("Total_Units")], add = T)
+
+plot(st_geometry(arl_civic_assoc_wgs84_wavhills), border = 4, lwd = 4)
+plot(va_arl_housing_units_wavhills_bgs[, c("Total_Units")], pal = heat.colors, add = T)
+

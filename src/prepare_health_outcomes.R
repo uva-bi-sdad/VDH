@@ -46,3 +46,42 @@ dt <- rbindlist(list(dt2021, dt2020, dt2019, dt2018, dt2017, dt2016, dt2015))
 con <- get_db_conn()
 dc_dbWriteTable(con, "dc_health_behavior_diet", "va_ct_chr_2015_2021_preventable_hospitalizations", dt)
 DBI::dbDisconnect(con)
+
+
+# dt <- DBI::dbReadTable(con, c("dc_webapp", "health_measures"))
+# write.csv(dt, "tmp/health_measures.csv", row.names = F)
+
+
+con <- get_db_conn()
+prevent_hosp <- 
+  DBI::dbGetQuery(con,
+                  "SELECT geoid::text, region_type, region_name, year::integer, measure, value, measure_type 
+                   FROM dc_health_behavior_diet.va_hd_chr_2015_2021_preventable_hospitalizations
+                   UNION
+                   SELECT geoid::text, region_type, region_name, year::integer, measure, value, measure_type 
+                   FROM dc_health_behavior_diet.va_ct_chr_2015_2021_preventable_hospitalizations;")
+dc_dbWriteTable(con, "dc_health_behavior_diet", "va_hdct_chr_2015_2021_preventable_hospitalizations", prevent_hosp)
+readr::write_csv(prevent_hosp, "data/dc_webapp/va_hdct_chr_2015_2021_preventable_hospitalizations.csv")
+DBI::dbDisconnect(con)
+
+
+
+con <- get_db_conn()
+category_measures <- DBI::dbReadTable(con, c("dc_webapp", "category_measures"))
+DBI::dbDisconnect(con)
+
+new_cat_meas <- data.frame(
+  category = c("Health"),
+  measure = c("prevent_hosp_rate"),
+  measure_table = c("dc_health_behavior_diet.va_hdct_chr_2015_2021_preventable_hospitalizations")
+)
+category_measures <- rbind(category_measures, new_cat_meas)
+category_measures <- category_measures[order(category_measures$category),]
+category_measures <- category_measures[category_measures$measure_table!="dc_health_behavior_diet.va_ct_chr_2015_2021_preventable_hospitalizations",]
+
+con <- get_db_conn()
+DBI::dbSendQuery(con, "DROP TABLE dc_webapp.category_measures")
+dc_dbWriteTable(con, "dc_webapp", "category_measures", category_measures)
+DBI::dbDisconnect(con)
+
+write.csv(category_measures, "data/dc_webapp/category_measures.csv")
