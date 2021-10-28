@@ -48,6 +48,7 @@ dc_dbWriteTable(con, "dc_health_behavior_diet", "va_ct_chr_2015_2021_preventable
 DBI::dbDisconnect(con)
 
 
+
 # dt <- DBI::dbReadTable(con, c("dc_webapp", "health_measures"))
 # write.csv(dt, "tmp/health_measures.csv", row.names = F)
 
@@ -85,3 +86,43 @@ dc_dbWriteTable(con, "dc_webapp", "category_measures", category_measures)
 DBI::dbDisconnect(con)
 
 write.csv(category_measures, "data/dc_webapp/category_measures.csv")
+=======
+# AGGREGATE TO HEALTH DISTRICTS
+
+con <- get_db_conn()
+va_ct_chr_2015_2021_preventable_hospitalizations <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_ct_chr_2015_2021_preventable_hospitalizations"), row.names = FALSE))
+va_hd_cts <- setDT(DBI::dbReadTable(con, c("dc_health_behavior_diet", "va_hd_vhd_2021_virginia_health_districts"), row.names = FALSE))
+DBI::dbDisconnect(con)
+
+va_ct_chr_2015_2021_preventable_hospitalizations[, region_name := tools::toTitleCase(region_name)]
+
+va_hd_cts[name_county %in% c("Alexandria", "Salem","Covington", "Charlottesville","Buena Vista", "Lexington","Staunton", "Waynesboro",
+                             "Harrisonburg", "Lynchburg","Chesapeake", "Emporia","Petersburg", "Colonial Heights","Hopewell", "Falls Church",
+                             "Hampton", "Winchester", "Bristol", "Galax", "Radford", "Norfolk", "Williamsburg", "Newport News", "Poquoson",
+                             "Manassas Park", "Fredericksburg", "Virginia Beach", "Martinsville", 
+                             "Portsmouth", "Norton", "Danville", "Suffolk"), name_county := paste0(name_county, " City")]
+
+va_hd_cts[name_county == "James City", name_county := "James City County"]
+va_hd_cts[name_county == "Charles City", name_county := "Charles City County"]
+va_hd_cts[!name_county %like% "County$" & !name_county %ilike% "City", name_county := paste0(name_county, " County")]
+va_hd_cts[, name_county := paste0(name_county, ", Virginia")]
+va_hd_cts$geometry <- NULL
+
+
+mrg <- merge(va_hd_cts, va_ct_chr_2015_2021_preventable_hospitalizations, by.x = "name_county", by.y = "region_name")
+va_hd_chr_2015_2021_preventable_hospitalizations <- mrg[, .(prevent_hosp_rate = mean(value, na.rm = TRUE)), c("health_district", "fid", "year")]
+
+va_hd_chr_2015_2021_preventable_hospitalizations <- 
+  va_hd_chr_2015_2021_preventable_hospitalizations[, .(geoid = fid, 
+                                                        region_type = "health district", 
+                                                        region_name = health_district, 
+                                                        year = as.integer(year), 
+                                                        measure = "prevent_hosp_rate", 
+                                                        value = round(prevent_hosp_rate,2),
+                                                        measure_type = "rate per 100K")]
+
+
+con <- get_db_conn()
+dc_dbWriteTable(con, "dc_health_behavior_diet", "va_hd_chr_2015_2021_preventable_hospitalizations", va_hd_chr_2015_2021_preventable_hospitalizations)
+DBI::dbDisconnect(con)
+
