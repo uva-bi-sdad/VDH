@@ -154,6 +154,22 @@ dc_dbWriteTable(con, "dc_education_training", "va_hdcttr_osrm_2021_drive_times_n
 write_csv(drive_to_daycares, "data/dc_webapp/va_hdcttr_osrm_2021_drive_times_nearest_daycares.csv")
 DBI::dbDisconnect(con)
 
+con <- get_db_conn()
+daycare_services_access <- 
+  DBI::dbGetQuery(con,
+                  "SELECT geoid::text, region_type, region_name, year::integer, measure, value, measure_type 
+                   FROM dc_education_training.va_tr_sdad_2021_daycare_services_access_scores
+                   UNION
+                   SELECT geoid::text, region_type, region_name, year::integer, measure, value, measure_type 
+                   FROM dc_education_training.va_ct_sdad_2021_daycare_services_access_scores
+                   UNION
+                   SELECT geoid::text, region_type, region_name, year::integer, measure, value, measure_type 
+                   FROM dc_education_training.va_hd_sdad_2021_daycare_services_access_scores;")
+dc_dbWriteTable(con, "dc_education_training", "va_hdcttr_sdad_2021_daycare_services_access_scores", daycare_services_access)
+readr::write_csv(daycare_services_access, "data/dc_webapp/va_hdcttr_sdad_2021_daycare_services_access_scores.csv")
+DBI::dbDisconnect(con)
+
+
 
 category_measures <- read.csv("data/dc_webapp/category_measures.csv")
 new_cat_meas <- data.frame(
@@ -184,5 +200,106 @@ con <- get_db_conn()
 DBI::dbSendQuery(con, "DROP TABLE dc_webapp.category_measures")
 dc_dbWriteTable(con, "dc_webapp", "category_measures", category_measures)
 DBI::dbDisconnect(con)
+
+
+
+
+# ACS Post HS Grad
+library(tidycensus)
+library(data.table)
+acs_vars <- setDT(tidycensus::load_variables("2019", "acs5"))
+ed_attain_totals_vars <- acs_vars[name %like% "B15003", name]
+
+va_counties <- fips_codes[fips_codes$state_code=="51", "county_code"]
+
+if (exists("ed_attain_tots")) rm(ed_attain_tots)
+for (y in 2015:2019) {
+  for (f in va_counties[va_counties != "515"]) {
+    print(paste(y, f))
+    
+    a_tr_ed_attain_totals <- get_acs(geography = "tract", year = y, state = "51", county = f, variables = ed_attain_totals_vars)
+    
+    a_tr_ed_attain_totals$year <- y
+    if (!exists("ed_attain_tots")) ed_attain_tots <- a_tr_ed_attain_totals
+    else ed_attain_tots <- rbind(ed_attain_tots, a_tr_ed_attain_totals)
+  }
+}
+
+
+post_hs_ed <- ed_attain_tots[ed_attain_tots$variable %in% c("B15003_001", "B15003_019","B15003_020","B15003_021","B15003_022","B15003_023","B15003_024","B15003_025"),]
+setDT(post_hs_ed)
+
+
+
+test1 <- get_acs(geography = "tract", year = y, state = "51", county = "013", variables = ed_attain_totals_vars)
+
+for (g in post_hs_ed[1:2, GEOID]) {
+  
+  
+}
+
+if (exists("dtout")) rm(dtout)
+gids <- unique(post_hs_ed[, GEOID])
+yrs <- unique(post_hs_ed[, year])
+for (y in yrs) {
+  for (g in gids) {
+    pop <-
+      post_hs_ed[GEOID == g &
+                   year == y &
+                   variable == "B15003_001", estimate]
+    dt <-
+      post_hs_ed[GEOID == g &
+                   year == y &
+                   variable != "B15003_001", .(
+                     region_type = "tract",
+                     measure = "pct_post_hs",
+                     measure_type = "percent",
+                     value = 100 * (sum(estimate) / pop)
+                   ), c("GEOID", "NAME", "year")][, .(
+                     geoid = GEOID,
+                     region_type,
+                     region_name = NAME,
+                     year,
+                     measure,
+                     value,
+                     measure_type
+                   )]
+    if (!exists("dtout")) dtout <- dt
+    else dtout <- rbindlist(list(dtout, dt))
+  }
+}
+
+write.csv(dtout, "data/dc_education_training/va_tr_acs5_2015_2019_higher_than_high_school_education")
+
+post_hs_ed[GEOID %like% "^51013",]
+post_hs_ed[GEOID %like% "^51013" &
+             year == y &
+             variable != "B15003_001", .(
+               region_type = "tract",
+               measure = "pct_post_hs",
+               measure_type = "percent",
+               value = 100 * (sum(estimate) / pop)
+             ), c("GEOID", "NAME", "year")][, .(
+               value = sum()
+               #######
+             )][, .(
+               geoid = GEOID,
+               region_type,
+               region_name = NAME,
+               year,
+               measure,
+               value,
+               measure_type
+             )]
+
+
+colnames(a_tr_ed_attain_totals) <- c("geoid", "name", "variable", "estimate", "moe")
+con <- get_db_conn()
+DBI::dbSendQuery(con, "DROP TABLE IF EXISTS dc_education_training.category_measures")
+dc_dbWriteTable(con, "dc_webapp", "category_measures", category_measures)
+DBI::dbDisconnect(con)
+
+
+
 
 
