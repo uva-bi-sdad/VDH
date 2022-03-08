@@ -29,7 +29,6 @@ source("../../src/helper_functions.R")
 # There are four instances of Selenium currently running on our server, each with a different port number.
 # Set the port you want to use (4444, 4445, 4446, or 4447) and run your code.
 # To monitor what is going on, a separate port is available for each of the selenium instances (7900, 7901, 7902, 7903). Password is 'secret'.
-# So, if you want to watch what is happening after you sent your code to 4446 (the 3rd one), you’d go to http://104.248.112.16:7902 (also the third one). 
 
 port <- 4444
 ip <- "104.248.112.16"
