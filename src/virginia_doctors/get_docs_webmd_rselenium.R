@@ -38,7 +38,7 @@ library(data.table)
 # user <- "aschroed" # Your Sauce Labs username
 # pass <- "Iwnftp$$2" # Your Sauce Labs access key 
 # port <- 4444
-# ip <- paste0(user, ':', pass, "@104.248.112.16")
+# ip <- paste0(user, ':', pass, <OSRM SERVER>)
 # rdBrowser <- "firefox"
 # 
 # remDr <- remoteDriver$new(

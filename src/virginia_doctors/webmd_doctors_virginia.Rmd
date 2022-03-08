@@ -31,7 +31,7 @@ source("../../src/helper_functions.R")
 # To monitor what is going on, a separate port is available for each of the selenium instances (7900, 7901, 7902, 7903). Password is 'secret'.
 
 port <- 4444
-ip <- "104.248.112.16"
+ip <- Sys.getenv("OSRM_SERVER")
 rdBrowser <- "firefox"
 
 remDr <- remoteDriver$new(
